@@ -16,6 +16,11 @@ const commentSchema = z.object({
   authorEmail: z.email().optional(),
 });
 
+const viewSchema = z.object({
+  sessionId: z.string().min(1),
+  referrer: z.string().optional(),
+});
+
 posts.get("/", zValidator("query", querySchema), async (c) => {
   const { page, limit } = c.req.valid("query");
   const skip = (page - 1) * limit;
@@ -52,7 +57,7 @@ posts.get("/:slug", async (c) => {
     include: {
       author: { select: { name: true, image: true } },
       tags: true,
-      _count: { select: { comments: true } },
+      _count: { select: { comments: { where: { approved: true } } } },
     },
   });
 
@@ -104,4 +109,23 @@ posts.post("/:slug/comments", zValidator("json", commentSchema), async (c) => {
   });
 
   return c.json(comment, 201);
+});
+
+posts.post("/:slug/view", zValidator("json", viewSchema), async (c) => {
+  const slug = c.req.param("slug");
+  const body = c.req.valid("json");
+
+  const post = await prisma.post.findFirst({ where: { slug } });
+
+  if (!post) return c.json({ error: "not_found" }, 404);
+
+  await prisma.postView.create({
+    data: {
+      sessionId: body.sessionId,
+      referrer: body.referrer,
+      postId: post.id,
+    },
+  });
+
+  return c.json({ ok: true }, 201);
 });

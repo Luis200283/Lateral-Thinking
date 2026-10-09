@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 
 import { posts } from "./routes/posts";
+import { profile } from "./routes/profile";
 
 export function createApp() {
   const app = new Hono();
@@ -17,6 +18,7 @@ export function createApp() {
 
   app.get("/health", (c) => c.json({ status: "ok" }));
   app.route("/posts", posts);
+  app.route("/profile", profile);
   app.notFound((c) => c.json({ error: "not_found" }, 404));
   app.onError((err, c) => {
     console.error(err);

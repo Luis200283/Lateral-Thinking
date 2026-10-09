@@ -26,6 +26,7 @@ model User {
     createdAt     DateTime  @default(now())
     updatedAt     DateTime  @updatedAt
     image         String?
+    bio           String?
     role          Role      @default(USER)
     posts         Post[]
     comments      Comment[]
