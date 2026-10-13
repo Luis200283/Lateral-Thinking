@@ -5,7 +5,9 @@
     "moduleResolution": "bundler",
     "target": "ES2023",
     "types": ["node"],
-    "noEmit": true
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false 
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist"]
