@@ -1,0 +1,68 @@
+# Blueprint de Render: las dos APIs corren como Web Services free.
+# Uso: Render Dashboard -> New -> Blueprint -> conectar este repo.
+# Los frontends (web y cms) van en Vercel (ver checklist de deploy).
+#
+# Notas:
+# - region: ohio coincide con la region de Neon (us-east-2), latencia minima.
+# - Los secretos (sync: false) se piden al crear el blueprint y quedan
+#   guardados solo en el dashboard de Render.
+# - Los frontends llaman a las APIs por HTTPS, por eso ambos servicios
+#   usan -> https://api.luishswe.com y https://api-cms.luishswe.com
+#   (custom domains; las cookies de Better Auth requieren el mismo site).
+services:
+  - type: web
+    name: lateral-api-public
+    runtime: node
+    plan: free
+    region: ohio
+    rootDir: apps/api-public
+    buildCommand: corepack enable && cd ../.. && pnpm install --frozen-lockfile && pnpm --filter @repo/db db:generate
+    startCommand: pnpm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      # Neon: pool para runtime, directa para prisma generate en el build.
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      # CORS: solo el blog consume esta API desde el navegador.
+      - key: CORS_ORIGIN
+        value: https://blog.luishswe.com
+
+  - type: web
+    name: lateral-api-cms
+    runtime: node
+    plan: free
+    region: ohio
+    rootDir: apps/api-cms
+    buildCommand: corepack enable && cd ../.. && pnpm install --frozen-lockfile && pnpm --filter @repo/db db:generate
+    startCommand: pnpm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      # Coma, sin espacios (lo espera env.ts -> split(",")).
+      - key: CORS_ORIGIN
+        value: https://blog.luishswe.com,https://cms.luishswe.com
+      # Better Auth: baseURL publica y secret generado por Render.
+      - key: BETTER_AUTH_URL
+        value: https://api-cms.luishswe.com
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      # Magic link: sin RESEND_API_KEY el enlace se loguea en Render Logs.
+      - key: EMAIL_FROM
+        value: no-reply@luishswe.com
+      - key: RESEND_API_KEY
+        sync: false

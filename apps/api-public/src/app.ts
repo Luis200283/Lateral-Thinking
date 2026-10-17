@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { posts } from "./routes/posts";
 import { profile } from "./routes/profile";
+import { tags } from "./routes/tags";
 import { env } from "./env";
 import { secureHeaders } from "hono/secure-headers";
 import { bodyLimit } from "hono/body-limit";
@@ -48,11 +49,13 @@ export function createApp() {
   app.use("*", logger());
   app.use("*", cors({ origin: env.CORS_ORIGIN.split(",") }));
   app.use("*", globalLimiter);
-  app.use("/posts/:slug/comments", writeLimiter)
-  app.use("/posts/:slug/view", writeLimiter)
+  app.use("/posts/:slug/comments", writeLimiter);
+  app.use("/posts/:slug/view", writeLimiter);
+  app.use("/posts/:slug/heartbeat", writeLimiter);
 
   app.get("/health", (c) => c.json({ status: "ok" }));
   app.route("/posts", posts);
+  app.route("/tags", tags);
   app.route("/profile", profile);
   app.notFound((c) => c.json({ error: "not_found" }, 404));
   app.onError((err, c) => {

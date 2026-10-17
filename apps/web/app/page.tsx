@@ -1,102 +1,189 @@
-import Image, { type ImageProps } from "next/image";
-import { Button } from "@repo/ui/button";
-import styles from "./page.module.css";
+import Link from "next/link";
+import { Button, SectionHeading, Tag } from "@repo/ui/playground";
+import { ApiOfflineNotice } from "../components/ApiOfflineNotice";
+import PostCard from "../components/PostCard";
+import { getPosts, getProfile, type PostSummary } from "../lib/api";
+import { tagTone } from "../lib/ui";
 
-type Props = Omit<ImageProps, "src"> & {
-  srcLight: string;
-  srcDark: string;
-};
+export const dynamic = "force-static";
 
-const ThemeImage = (props: Props) => {
-  const { srcLight, srcDark, ...rest } = props;
+export default async function Home() {
+  // Server Component: fetch en el servidor para SEO + first paint con datos.
+  // Cada llamada ya devuelve `null` si la API está apagada -> build seguro.
+  const [profile, posts] = await Promise.all([getProfile(), getPosts(1, 3)]);
+
+  const recent = (
+    profile && profile.recent.length > 0 ? profile.recent : (posts?.items ?? [])
+  ).slice(0, 3);
+  const popular = (profile?.popular ?? []).slice(0, 3);
+  const author = profile?.author ?? null;
+  const apiOffline = profile === null && posts === null;
+  const tagCloud = buildTagCloud(recent, popular);
 
   return (
     <>
-      <Image {...rest} src={srcLight} className="imgLight" />
-      <Image {...rest} src={srcDark} className="imgDark" />
+      {/* ---------------------------------------------------------- hero --- */}
+      <section
+        aria-labelledby="hero-title"
+        className="px-6 pb-16 pt-14 sm:px-10"
+      >
+        <div className="mx-auto max-w-6xl">
+          <p className="mb-5 font-mono text-[0.6875rem] uppercase tracking-[0.22em] text-coral-ink">
+            // BLOG
+          </p>
+
+          <h1
+            id="hero-title"
+            className="text-balance font-display text-[clamp(2.5rem,6vw,4.25rem)] font-bold leading-[1.02] tracking-[-0.03em]"
+          >
+            Escribo para pensar en voz alta.
+          </h1>
+
+          <p className="mt-7 max-w-[58ch] text-[1.0625rem] leading-relaxed text-muted">
+            Apuntes de trabajo sobre{" "}
+            <span className="mx-[0.1em] bg-sun px-1 font-semibold text-ink">
+              pensamiento lateral
+            </span>
+            , creatividad y resolución de problemas. Ni tesis ni trucos: lo que
+            voy aprendiendo mientras lo intento, con el proceso a la vista.
+          </p>
+
+          {author?.name ? (
+            <p className="mt-6 font-mono text-[0.6875rem] tracking-[0.1em] text-muted">
+              $ whoami → {author.name}
+            </p>
+          ) : null}
+
+          <div className="mt-9 flex flex-wrap items-center gap-5">
+            <Button href="/blog" size="lg">
+              Leer el blog
+            </Button>
+            <Button href="/sobre-mi" size="lg" variant="outline">
+              Sobre mí
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {apiOffline ? (
+        <div className="px-6 sm:px-10">
+          <div className="mx-auto mt-2 max-w-6xl">
+            <ApiOfflineNotice />
+          </div>
+        </div>
+      ) : null}
+
+      {/* ------------------------------------------------------- recientes --- */}
+      <section
+        aria-labelledby="recent-title"
+        className="border-t-[1.5px] border-ink/15 px-6 py-16 sm:px-10"
+      >
+        <div className="mx-auto max-w-6xl">
+          <SectionHeading kicker="// LO MÁS RECIENTE" id="recent-title">
+            Últimas notas publicadas
+          </SectionHeading>
+
+          <div className="mt-10">
+            {recent.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <ul className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {recent.map((post) => (
+                  <li key={post.id} className="h-full">
+                    <PostCard post={post} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {recent.length > 0 ? (
+            <div className="mt-10">
+              <Button href="/blog" size="sm" variant="ghost">
+                Ver todos los artículos →
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------- populares --- */}
+      <section
+        aria-labelledby="popular-title"
+        className="border-t-[1.5px] border-ink/15 px-6 py-16 sm:px-10"
+      >
+        <div className="mx-auto max-w-6xl">
+          <SectionHeading kicker="// POPULARES" id="popular-title">
+            Lo que más se lee
+          </SectionHeading>
+
+          <div className="mt-10">
+            {popular.length === 0 ? (
+              <EmptyState message="Todavía no hay suficientes lecturas para rankear. Vuelve en un rato." />
+            ) : (
+              <ol className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {popular.map((post, index) => (
+                  <li key={post.id} className="h-full">
+                    <PostCard post={post} index={index} />
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------------ tags --- */}
+      {tagCloud.length > 0 ? (
+        <section
+          aria-labelledby="tags-title"
+          className="border-t-[1.5px] border-ink/15 px-6 py-16 sm:px-10"
+        >
+          <div className="mx-auto max-w-6xl">
+            <SectionHeading kicker="// TEMAS" id="tags-title">
+              Por dónde empezar
+            </SectionHeading>
+            <ul className="mt-8 flex flex-wrap gap-2.5">
+              {tagCloud.map((tag) => (
+                <li key={tag.slug}>
+                  <Link
+                    href={`/blog?tag=${encodeURIComponent(tag.slug)}`}
+                    className="inline-block transition-transform duration-200 hover:-translate-y-0.5"
+                  >
+                    <Tag tone={tagTone(tag.slug)}>#{tag.name}</Tag>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      ) : null}
     </>
   );
-};
+}
 
-export default function Home() {
+function EmptyState({ message }: { message?: string }) {
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <ThemeImage
-          className={styles.logo}
-          srcLight="turborepo-dark.svg"
-          srcDark="turborepo-light.svg"
-          alt="Turborepo logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>apps/web/app/page.tsx</code>
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new/clone?demo-description=Learn+to+implement+a+monorepo+with+a+two+Next.js+sites+that+has+installed+three+local+packages.&demo-image=%2F%2Fimages.ctfassets.net%2Fe5382hct74si%2F4K8ZISWAzJ8X1504ca0zmC%2F0b21a1c6246add355e55816278ef54bc%2FBasic.png&demo-title=Monorepo+with+Turborepo&demo-url=https%3A%2F%2Fexamples-basic-web.vercel.sh%2F&from=templates&project-name=Monorepo+with+Turborepo&repository-name=monorepo-turborepo&repository-url=https%3A%2F%2Fgithub.com%2Fvercel%2Fturborepo%2Ftree%2Fmain%2Fexamples%2Fbasic&root-directory=apps%2Fdocs&skippable-integrations=1&teamSlug=vercel&utm_source=create-turbo"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            href="https://turborepo.dev/docs?utm_source"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
-        </div>
-        <Button appName="web" className={styles.secondary}>
-          Open alert
-        </Button>
-      </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://vercel.com/templates?search=turborepo&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://turborepo.dev?utm_source=create-turbo"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to turborepo.dev →
-        </a>
-      </footer>
+    <div className="rounded-card border-[1.5px] border-dashed border-ink/40 bg-surface/60 p-6">
+      <p className="font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-muted">
+        $ ls ~/posts
+      </p>
+      <p className="mt-2 text-sm text-muted">
+        {message ?? "Sin artículos todavía. En cuanto la API responda, aparecen aquí."}
+      </p>
     </div>
   );
+}
+
+/** Nube de temas deducida de recientes + populares (la home no pide /tags). */
+function buildTagCloud(...groups: PostSummary[][]): { slug: string; name: string }[] {
+  const seen = new Map<string, string>();
+  for (const group of groups) {
+    for (const post of group) {
+      for (const tag of post.tags ?? []) {
+        if (!seen.has(tag.slug)) seen.set(tag.slug, tag.name);
+      }
+    }
+  }
+  return [...seen.entries()].map(([slug, name]) => ({ slug, name }));
 }

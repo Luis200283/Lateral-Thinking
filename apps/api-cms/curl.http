@@ -1,0 +1,54 @@
+# 1. sign-up (once)
+curl -c cookies.txt -X POST http://localhost:4001/auth/sign-up/email \
+-H "Content-Type: application/json" \
+-d '{"email":"luis@luishswe.com","password":"Luis.2003283","name":"Luis"}'
+
+# 2. JWKS is exposed (stateless verify depends on this)
+curl http://localhost:4001/auth/jwks
+
+# 3. get the JWT (uses the session cookie)
+curl -b cookies.txt http://localhost:4001/auth/token
+
+# 4. protected route works with Bearer
+curl http://localhost:4001/me -H "Authorization: Bearer <jwt>"
+
+# 5. and fails without it (expect 401)
+curl http://localhost:4001/me
+
+# --- CMS (all need admin JWT; replace <jwt> and promote user to ADMIN) ---
+
+# 6. create a draft post (201, slug auto-generated)
+curl -X POST http://localhost:4001/posts/ \
+-H "Authorization: Bearer <jwt>" -H "Content-Type: application/json" \
+-d '{"title":"Mi Primer Post!","content":"# Hola","tags":["JS"]}'
+
+# 7. admin list including drafts
+curl http://localhost:4001/posts/ -H "Authorization: Bearer <jwt>"
+
+# 8. post detail by slug (admin sees drafts; public API would 404)
+curl http://localhost:4001/posts/mi-primer-post -H "Authorization: Bearer <jwt>"
+
+# 9. edit by stable id (slug unchanged unless "slug" sent; publishedAt kept)
+curl -X PATCH http://localhost:4001/posts/<id> \
+-H "Authorization: Bearer <jwt>" -H "Content-Type: application/json" \
+-d '{"title":"Nuevo título"}'
+
+# 10. publish a draft (sets publishedAt once)
+curl -X PATCH http://localhost:4001/posts/<id> \
+-H "Authorization: Bearer <jwt>" -H "Content-Type: application/json" \
+-d '{"status":"PUBLISHED"}'
+
+# 11. delete by stable id (id never changes; slug is mutable)
+curl -X DELETE http://localhost:4001/posts/<id> -H "Authorization: Bearer <jwt>"
+
+# 12. all comments (published automatically; CMS can only delete)
+curl http://localhost:4001/comments -H "Authorization: Bearer <jwt>"
+
+# 13. delete a comment
+curl -X DELETE http://localhost:4001/comments/<id> -H "Authorization: Bearer <jwt>"
+
+# 14. dashboard stats
+curl http://localhost:4001/stats -H "Authorization: Bearer <jwt>"
+
+# 15. tag list
+curl http://localhost:4001/tags -H "Authorization: Bearer <jwt>"

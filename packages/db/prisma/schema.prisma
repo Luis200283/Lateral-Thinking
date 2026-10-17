@@ -69,7 +69,7 @@ model Comment {
     userId      String?
     authorName  String?
     authorEmail String?
-    approved    Boolean  @default(false)
+    approved    Boolean  @default(true)
     post        Post     @relation(fields: [postId], references: [id])
     postId      String
 }

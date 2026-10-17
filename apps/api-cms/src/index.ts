@@ -1,9 +1,10 @@
-import {serve} from "@hono/node-server";
+import { serve } from "@hono/node-server";
 import { createApp } from "./app";
+import { env } from "./env";
 
 const app = createApp();
-const port = Number(process.env.PORT ?? 4001)
+const port = env.PORT;
 
-serve({fetch: app.fetch, port}, (info) =>{
-    console.log(`api-cms listening on http://localhost:${info.port}`)
-})
+serve({ fetch: app.fetch, port }, (info) => {
+  console.log(`api-cms listening on http://localhost:${info.port}`);
+});

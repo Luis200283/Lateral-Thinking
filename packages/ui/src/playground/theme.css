@@ -1,0 +1,137 @@
+/* ==========================================================================
+   Playground tokens — frozen in W2 (docs/design/TOKENS.md)
+   Faithful port of About-Me `src/app/globals.css`, minus decorative
+   keyframes (squiggle-draw / doodle-bob / caret-blink / confetti-burst).
+   Every component references these tokens; no loose hex values anywhere.
+   NOTE: `@import "tailwindcss"` lives in each app's globals.css — this file
+   only contributes the theme + base layer so it can be shared.
+   ========================================================================== */
+
+@theme {
+  --color-paper: #fff6ec;
+  --color-surface: #ffffff;
+  --color-ink: #221d2e;
+  --color-coral: #ff5c7a;
+  --color-sun: #ffc95c;
+  --color-violet: #8b7cff;
+  --color-mint: #3fc7a9;
+  --color-muted: #574e63;
+  --color-line: oklch(0.32 0.06 320 / 0.16);
+
+  /* --- contrast-safe text colours -------------------------------------
+     The bright palette (coral/violet/mint/sun) is used as FILL. On those
+     fills text must always be dark, in BOTH themes: --color-on-accent is
+     deliberately NOT themed. Measured: 5.50 / 5.01 / 10.72 / 7.76 → AA.
+     Text sitting ON paper needs the *-ink variants below (AA on paper:
+     5.26 / 6.28 / 4.91). Verified with docs/PLAYBOOK.md §5.            */
+  --color-on-accent: #221d2e;
+  --color-coral-ink: #c81f45;
+  --color-violet-ink: #5b3ae0;
+  --color-mint-ink: #177a64;
+
+  /* --- terminal: a real device screen, identical in both themes -----------
+     Deliberately NOT themed: a shell must not invert. Measured on this pair:
+     sun 12.1 · mint 6.4 · text 13.9 · border 1.9 (decorative). */
+  --color-terminal: #221d2e;
+  --color-terminal-text: #f4ede4;
+  --color-terminal-dim: #b9afc7;
+
+  --font-display: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
+
+  --radius-pill: 999px;
+  --radius-card: 14px;
+  --radius-chip: 10px;
+
+  --shadow-hard-sm: 3px 3px 0 var(--color-ink);
+  --shadow-hard: 6px 6px 0 var(--color-ink);
+
+  --ease-out-playful: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Colour-scheme keeps native UI (scrollbars, form controls) aligned with the
+   active theme. next-themes drives `data-theme` on <html>. */
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+/* Dark theme: coordinated palette (not an inversion). Contrast validated in W5. */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-paper: #17141c;
+  --color-surface: #221d2e;
+  --color-ink: #f4ede4;
+  --color-muted: #b9afc7;
+  --color-line: oklch(0.9 0.02 90 / 0.18);
+  --shadow-hard-sm: 3px 3px 0 #000000;
+  --shadow-hard: 6px 6px 0 #000000;
+
+  /* In dark mode the paper is dark, so accent TEXT flips to the brights
+     (AA on #17141c: coral 6.13, violet 8.76, mint 11.37). */
+  --color-coral-ink: #ff5c7a;
+  --color-violet-ink: #b9a8ff;
+  --color-mint-ink: #6fe0c2;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+::selection {
+  background: var(--color-sun);
+  color: var(--color-ink);
+}
+
+/* Focus must always be visible — an a11y gate (W5). */
+:focus-visible {
+  outline: 3px solid var(--color-violet);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Utilities that express the Playground language once, cleanly. */
+@utility ink-border {
+  border: 1.5px solid var(--color-ink);
+}
+
+@utility hard-shadow {
+  box-shadow: var(--shadow-hard-sm);
+}
+
+@utility hard-shadow-lg {
+  box-shadow: var(--shadow-hard);
+}
+
+@utility playful-rot {
+  transform: rotate(-1.2deg);
+}
+
+/* The Playground design is motion-forward; honour the escape hatch globally.
+   This only zeroes transient hover/scroll transitions (no decorative
+   keyframes are shipped in the shared package). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

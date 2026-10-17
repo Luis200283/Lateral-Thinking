@@ -1,0 +1,128 @@
+@import "tailwindcss";
+@import "@repo/ui/playground.css";
+
+/* The shared Playground components live in the UI workspace, outside this
+   app's default scan. Point Tailwind at their source so classes like
+   bg-coral / border-ink / text-on-accent / shadow-[3px_3px_0_var(--color-ink)]
+   are generated from packages/ui/src. */
+@source "../../../packages/ui/src";
+
+/* Keep the horizontal-overflow guard (hard shadows bleed 6px), matching
+   apps/web: `clip` instead of `hidden` — `hidden` would turn body into a
+   scroll container and break the sticky SiteNav. */
+html,
+body {
+  max-width: 100vw;
+  overflow-x: clip;
+}
+
+/* ==========================================================================
+   Capa CMS sobre los tokens Playground. Sin valores hex: todo sale de las
+   variables de tema (@repo/ui/playground.css), así que claro/oscuro se
+   resuelve solo. El CMS es una herramienta: legibilidad y densidad primero,
+   misma identidad (borde tinta 1.5px, sombra dura, kickers mono).
+   ========================================================================== */
+
+/* --- MDXEditor -----------------------------------------------------------
+   La librería trae sus propias escalas radix (acento azul + `--basePageBg:
+   white` fijo), lo que en tema oscuro deja texto casi negro sobre papel
+   oscuro. Se re-mapean sus variables a los tokens del CMS dentro del
+   envoltorio `.cms-mdx-scope` (especificidad 0,2,0: gana a la hoja de la
+   librería sin importar el orden de bundle). */
+.cms-mdx-scope .mdxeditor {
+  --accentBase: var(--color-surface);
+  --accentBgSubtle: var(--color-paper);
+  --accentBg: color-mix(in oklab, var(--color-coral) 12%, var(--color-surface));
+  --accentBgHover: color-mix(in oklab, var(--color-coral) 20%, var(--color-surface));
+  --accentBgActive: color-mix(in oklab, var(--color-coral) 30%, var(--color-surface));
+  --accentLine: color-mix(in oklab, var(--color-coral) 45%, var(--color-surface));
+  --accentBorder: var(--color-coral);
+  --accentBorderHover: var(--color-coral);
+  --accentSolid: var(--color-coral);
+  --accentSolidHover: color-mix(in oklab, var(--color-coral) 82%, black);
+  --accentText: var(--color-coral-ink);
+  --accentTextContrast: var(--color-on-accent);
+
+  --basePageBg: var(--color-surface);
+  --baseBase: var(--color-surface);
+  --baseBgSubtle: var(--color-paper);
+  --baseBg: color-mix(in oklab, var(--color-ink) 5%, var(--color-surface));
+  --baseBgHover: color-mix(in oklab, var(--color-ink) 9%, var(--color-surface));
+  --baseBgActive: color-mix(in oklab, var(--color-ink) 14%, var(--color-surface));
+  --baseLine: color-mix(in oklab, var(--color-ink) 14%, var(--color-surface));
+  --baseBorder: color-mix(in oklab, var(--color-ink) 26%, var(--color-surface));
+  --baseBorderHover: color-mix(in oklab, var(--color-ink) 42%, var(--color-surface));
+  --baseSolid: color-mix(in oklab, var(--color-ink) 50%, var(--color-surface));
+  --baseSolidHover: color-mix(in oklab, var(--color-ink) 66%, var(--color-surface));
+  --baseText: var(--color-muted);
+  --baseTextContrast: var(--color-ink);
+  --error-color: var(--color-coral-ink);
+  --font-body: var(--font-sans);
+}
+
+/* Área editable (contentEditableClassName="cms-mdx" en components/MdxEditor).
+   Mismo cuerpo que el resto del CMS; los bloques respiran para que el
+   markdown se lea como documento. */
+.cms-mdx {
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  font-size: 0.9375rem;
+  line-height: 1.7;
+}
+
+.cms-mdx h1,
+.cms-mdx h2,
+.cms-mdx h3 {
+  font-family: var(--font-display);
+  line-height: 1.25;
+  margin: 1.3em 0 0.5em;
+}
+
+.cms-mdx h1 {
+  font-size: 1.5rem;
+}
+
+.cms-mdx h2 {
+  font-size: 1.25rem;
+}
+
+.cms-mdx h3 {
+  font-size: 1.0625rem;
+}
+
+.cms-mdx p,
+.cms-mdx ul,
+.cms-mdx ol,
+.cms-mdx pre,
+.cms-mdx blockquote {
+  margin: 0.7em 0;
+}
+
+.cms-mdx > *:first-child {
+  margin-top: 0;
+}
+
+.cms-mdx a {
+  color: var(--color-coral-ink);
+  text-decoration: underline;
+}
+
+/* Mono de los tokens (mismo rol que `.md code` en apps/web), no una pila
+   local: así JetBrains Mono gobierna también dentro del editor. */
+.cms-mdx code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.cms-mdx pre {
+  border-radius: var(--radius-chip);
+  background: var(--color-terminal);
+  color: var(--color-terminal-text);
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+}
+
+.cms-mdx pre code {
+  background: none;
+  padding: 0;
+}

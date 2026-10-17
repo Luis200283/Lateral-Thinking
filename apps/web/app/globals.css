@@ -1,50 +1,189 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@import "tailwindcss";
+@import "@repo/ui/playground.css";
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* The shared Playground components live in the UI workspace, outside this
+   app's default scan. Point Tailwind at their source so classes like
+   bg-coral / border-ink / text-on-accent / shadow-[3px_3px_0_var(--color-ink)]
+   are generated from packages/ui/src. */
+@source "../../../packages/ui/src";
 
+/* Keep the horizontal-overflow guard (hard shadows bleed 6px).
+   `clip` instead of `hidden`: hidden would turn body into a scroll
+   container and break the sticky SiteNav. */
 html,
 body {
   max-width: 100vw;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.imgDark {
-  display: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
+/* Markdown article content (components/Markdown.tsx) — layered as base so
+   utilities can still override. Colours come from theme tokens, no loose hex. */
+@layer base {
+  .md {
+    margin-top: 2.25rem;
+    line-height: 1.75;
+    font-size: 1.0625rem;
+    overflow-wrap: break-word;
   }
 
-  .imgLight {
-    display: none;
+  .md > :first-child {
+    margin-top: 0;
   }
-  .imgDark {
-    display: unset;
+
+  .md h1,
+  .md h2,
+  .md h3,
+  .md h4 {
+    margin: 1.9em 0 0.6em;
+    font-family: var(--font-display);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--color-ink);
+    text-wrap: balance;
+    scroll-margin-top: 6rem;
+  }
+
+  .md h1 {
+    font-size: 1.9em;
+  }
+
+  .md h2 {
+    font-size: 1.5em;
+  }
+
+  .md h3 {
+    font-size: 1.25em;
+  }
+
+  .md h4 {
+    font-size: 1.0625em;
+  }
+
+  .md p,
+  .md ul,
+  .md ol,
+  .md blockquote,
+  .md pre,
+  .md table,
+  .md hr,
+  .md figure {
+    margin: 1.1em 0;
+  }
+
+  .md ul,
+  .md ol {
+    padding-left: 1.4em;
+  }
+
+  .md li {
+    margin: 0.35em 0;
+  }
+
+  .md li::marker {
+    color: var(--color-coral-ink);
+  }
+
+  .md a {
+    color: var(--color-violet-ink);
+    text-decoration: underline;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 3px;
+    transition: color 150ms ease;
+  }
+
+  .md a:hover {
+    color: var(--color-coral-ink);
+  }
+
+  .md strong {
+    font-weight: 700;
+    color: var(--color-ink);
+  }
+
+  .md hr {
+    border: 0;
+    border-top: 1.5px solid var(--color-line);
+  }
+
+  .md code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+  }
+
+  .md :not(pre) > code {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+    padding: 0.1em 0.35em;
+    color: var(--color-ink);
+  }
+
+  .md pre {
+    background: var(--color-terminal);
+    color: var(--color-terminal-text);
+    border: 1.5px solid var(--color-ink);
+    border-radius: var(--radius-chip);
+    padding: 1rem 1.1rem;
+    overflow-x: auto;
+    font-size: 0.85em;
+    line-height: 1.65;
+  }
+
+  .md pre code {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: inherit;
+    font-size: 1em;
+  }
+
+  .md blockquote {
+    border-left: 3px solid var(--color-coral);
+    background: var(--color-surface);
+    border-radius: 0 var(--radius-chip) var(--radius-chip) 0;
+    padding: 0.85rem 1.1rem;
+    color: var(--color-muted);
+  }
+
+  .md blockquote p {
+    margin: 0.35em 0;
+  }
+
+  .md table {
+    border-collapse: collapse;
+    width: 100%;
+    display: block;
+    overflow-x: auto;
+    font-size: 0.95em;
+  }
+
+  .md th,
+  .md td {
+    border: 1px solid var(--color-line);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .md thead th {
+    background: var(--color-surface);
+    font-family: var(--font-mono);
+    font-size: 0.8em;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-ink);
+  }
+
+  .md tbody tr:nth-child(even) {
+    background: var(--color-surface);
+  }
+
+  .md img {
+    max-width: 100%;
+    height: auto;
+    border: 1.5px solid var(--color-line);
+    border-radius: var(--radius-chip);
   }
 }
