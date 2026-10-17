@@ -19,19 +19,21 @@ enum Role {
 }
 
 model User {
-    id            String    @id @default(cuid())
-    email         String    @unique
-    name          String
-    emailVerified Boolean   @default(false)
-    createdAt     DateTime  @default(now())
-    updatedAt     DateTime  @updatedAt
-    image         String?
-    bio           String?
-    role          Role      @default(USER)
-    posts         Post[]
-    comments      Comment[]
-    sessions      Session[]
-    accounts      Account[]
+    id              String    @id @default(cuid())
+    email           String    @unique
+    name            String
+    emailVerified   Boolean   @default(false)
+    createdAt       DateTime  @default(now())
+    updatedAt       DateTime  @updatedAt
+    image           String?
+    bio             String?
+    role            Role      @default(USER)
+    username        String?   @unique
+    displayUsername String?
+    posts           Post[]
+    comments        Comment[]
+    sessions        Session[]
+    accounts        Account[]
 }
 
 model Post {

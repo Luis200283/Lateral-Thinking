@@ -3,11 +3,13 @@ import { prisma } from "../src/index";
 async function main() {
   const author = await prisma.user.upsert({
     where: { email: "luis@luishswe.com" },
-    update: { role: "ADMIN" },
+    update: { role: "ADMIN", username: "luis", displayUsername: "Luis" },
     create: {
       email: "luis@luishswe.com",
       name: "Luis",
       role: "ADMIN",
+      username: "luis",
+      displayUsername: "Luis",
       bio: "Desarrollador: crecimiento personal y tecnología. Escribo para pensar en voz alta.",
     },
   });

@@ -40,7 +40,7 @@ export function SignInModal({
   onSuccess,
 }: SignInModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -127,9 +127,18 @@ export function SignInModal({
 
   async function onEmailSubmit(e: FormEvent) {
     e.preventDefault();
+    const value = identifier.trim();
     if (mode === "signup") {
       if (!username.trim()) {
         setStatus({ kind: "error", text: "Elige un nombre de usuario." });
+        return;
+      }
+      // El plugin username de Better Auth exige 3-30 caracteres.
+      if (username.trim().length < 3) {
+        setStatus({
+          kind: "error",
+          text: "El nombre de usuario debe tener al menos 3 caracteres.",
+        });
         return;
       }
       if (password !== confirmPassword) {
@@ -140,12 +149,29 @@ export function SignInModal({
     setStatus(null);
     setBusy(true);
     try {
-      const path = mode === "signin" ? "/auth/sign-in/email" : "/auth/sign-up/email";
-      const res = await post(path, {
-        email: email.trim(),
-        password,
-        name: username.trim(),
-      });
+      // En sign-in el campo acepta email O nombre de usuario: con "@" es
+      // email (/auth/sign-in/email); sin "@" es usuario
+      // (/auth/sign-in/username, plugin username).
+      const isEmail = value.includes("@");
+      const path =
+        mode === "signin"
+          ? isEmail
+            ? "/auth/sign-in/email"
+            : "/auth/sign-in/username"
+          : "/auth/sign-up/email";
+      const res = await post(
+        path,
+        mode === "signin"
+          ? isEmail
+            ? { email: value, password }
+            : { username: value, password }
+          : {
+              email: value,
+              password,
+              name: username.trim(),
+              username: username.trim(),
+            },
+      );
       if (!res.ok) {
         const data = (await res.json().catch(() => null)) as {
           code?: unknown;
@@ -167,7 +193,9 @@ export function SignInModal({
               ? "Credenciales inválidas."
               : detail.startsWith("USER_ALREADY_EXISTS")
                 ? "Ese email ya está registrado. Inicia sesión."
-                : "No se pudo crear la cuenta. Inténtalo de nuevo.",
+                : detail.startsWith("USERNAME_IS_ALREADY_TAKEN")
+                  ? "Ese nombre de usuario ya está en uso."
+                  : "No se pudo crear la cuenta. Inténtalo de nuevo.",
         });
         return;
       }
@@ -259,24 +287,24 @@ export function SignInModal({
           </button>
         </div>
 
-        {/* Email + contraseña */}
+        {/* Email/usuario + contraseña */}
         <form onSubmit={onEmailSubmit} className="mt-6 grid gap-4">
           <div>
             <label
-              htmlFor="signin-email"
+              htmlFor="signin-identifier"
               className="mb-1.5 block font-mono text-xs uppercase tracking-widest text-muted"
             >
-              Email
+              {mode === "signin" ? "Email o usuario" : "Email"}
             </label>
             <input
-              id="signin-email"
-              type="email"
+              id="signin-identifier"
+              type={mode === "signin" ? "text" : "email"}
               required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              autoComplete={mode === "signin" ? "username" : "email"}
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               className={inputClass}
-              placeholder="tu@email.com"
+              placeholder={mode === "signin" ? "tu@email.com o tu usuario" : "tu@email.com"}
             />
           </div>
           <div>

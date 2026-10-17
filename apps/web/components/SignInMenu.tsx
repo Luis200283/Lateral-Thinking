@@ -7,6 +7,16 @@ import { CMS_API_URL } from "../lib/api";
 interface UserInfo {
   name: string;
   email: string;
+  role: string | null;
+}
+
+/** Etiqueta dorada del rol ADMIN (chip y dropdown): fondo sun + texto on-accent. */
+function AdminBadge() {
+  return (
+    <span className="rounded-pill border-[1.5px] border-ink bg-sun px-2 py-0.5 font-mono text-[0.625rem] uppercase tracking-[0.14em] text-on-accent">
+      ADMIN
+    </span>
+  );
 }
 
 export function SignInMenu() {
@@ -92,13 +102,18 @@ export function SignInMenu() {
         if (!res.ok) throw new Error("no session");
         return res.json();
       })
-      .then((data: { user?: { name?: unknown; email?: unknown } }) => {
-        if (cancelled || !data?.user) return;
-        setUserInfo({
-          name: typeof data.user.name === "string" ? data.user.name : "",
-          email: typeof data.user.email === "string" ? data.user.email : "",
-        });
-      })
+      .then(
+        (data: {
+          user?: { name?: unknown; email?: unknown; role?: unknown };
+        }) => {
+          if (cancelled || !data?.user) return;
+          setUserInfo({
+            name: typeof data.user.name === "string" ? data.user.name : "",
+            email: typeof data.user.email === "string" ? data.user.email : "",
+            role: typeof data.user.role === "string" ? data.user.role : null,
+          });
+        },
+      )
       .catch(() => {
         if (!cancelled) setSignedIn(false);
       });
@@ -155,6 +170,7 @@ export function SignInMenu() {
           >
             {userInfo.name}
           </span>
+          {userInfo.role === "ADMIN" && <AdminBadge />}
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink bg-paper">
             <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3 w-3 fill-ink">
               <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
@@ -170,8 +186,9 @@ export function SignInMenu() {
                 </svg>
               </span>
               <div className="min-w-0">
-                <p className="truncate font-display text-sm font-bold text-ink">
-                  {userInfo.name}
+                <p className="flex items-center gap-2 font-display text-sm font-bold text-ink">
+                  <span className="truncate">{userInfo.name}</span>
+                  {userInfo.role === "ADMIN" && <AdminBadge />}
                 </p>
                 {userInfo.email && (
                   <p className="truncate font-mono text-xs text-muted">

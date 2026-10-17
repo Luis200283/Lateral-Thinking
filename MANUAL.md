@@ -146,13 +146,13 @@ curl -X POST http://localhost:4001/auth/sign-up/email \
   -d '{"email":"luis@luishswe.com","password":"CAMBIA-ESTO","name":"Luis"}'
 ```
 
-Luego entra en http://localhost:3001/login con ese email/password. El CMS guarda el JWT en `localStorage (cms_jwt)` + cookie `cms_token`.
+Luego entra en http://localhost:3001/login con ese email/password **o con tu nombre de usuario** (el campo acepta ambos: con `@` entra por email; sin `@`, por username). El CMS guarda el JWT en `localStorage (cms_jwt)` + cookie `cms_token`.
 
 > Si el sign-up falla porque el email ya tiene `Account`, usa el login directamente. Si quieres resetear: borra el usuario en Neon y repite seed + sign-up.
 
 ### 4.1.1 Entrar con Google, GitHub o magic link
 
-Desde cualquier página (web `:3000` y CMS `:3001`) hay un botón **Iniciar sesión** en la barra superior que abre el modal con fondo difuminado.
+Desde cualquier página (web `:3000` y CMS `:3001`) hay un botón **Iniciar sesión** en la barra superior que abre el modal con fondo difuminado. El formulario acepta **email o nombre de usuario** + contraseña; al entrar, los usuarios con rol ADMIN ven una etiqueta dorada **ADMIN** junto a su nombre.
 
 **Magic link (probarlo ya, sin configurar nada):**
 1. Escribe tu email en el modal → "Enviar enlace mágico".

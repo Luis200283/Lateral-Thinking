@@ -5,9 +5,10 @@
  * Auth: JWT Bearer guardado en localStorage (`cms_jwt`) + cookie espejo
  * (`cms_token`) para que el middleware (SSR) pueda redirigir a /login.
  *
- * Flujo login (Better Auth email/password + plugin jwt):
- *   1. POST {API}/auth/sign-in/email { email, password } (credentials:include)
- *      -> crea sesión y deja cookie httpOnly.
+ * Flujo login (Better Auth email/password, username o plugin jwt):
+ *   1. POST {API}/auth/sign-in/email { email, password } — o
+ *      /auth/sign-in/username { username, password } si no hay "@"
+ *      (credentials:include) -> crea sesión y deja cookie httpOnly.
  *   2. GET {API}/auth/token (credentials:include) -> { token: "<jwt>" }.
  *   3. Se guarda el JWT y se usa como `Authorization: Bearer` en /me,
  *      /posts, /comments, /stats, /tags.
@@ -201,18 +202,26 @@ export interface CmsStats {
 // ------------------------------------------------------------------ auth ---
 
 /**
- * Login Better Auth email/password contra {API}/auth.
+ * Login Better Auth contra {API}/auth con email O nombre de usuario.
+ * Si el identifier contiene "@" usa /auth/sign-in/email { email, password };
+ * si no, /auth/sign-in/username { username, password } (plugin username).
  * Hace sign-in (cookie de sesión) + GET /auth/token (JWT) y guarda el JWT.
  * Lanza ApiError si las credenciales son inválidas o la API está caída.
  */
-export async function login(email: string, password: string): Promise<string> {
+export async function login(identifier: string, password: string): Promise<string> {
+  const value = identifier.trim();
+  const isEmail = value.includes("@");
+  const path = isEmail ? "/auth/sign-in/email" : "/auth/sign-in/username";
+  const body = isEmail
+    ? JSON.stringify({ email: value, password })
+    : JSON.stringify({ username: value, password });
   let signIn: Response;
   try {
-    signIn = await fetch(`${CMS_API_URL}/auth/sign-in/email`, {
+    signIn = await fetch(`${CMS_API_URL}${path}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ email, password }),
+      body,
     });
   } catch {
     throw new ApiError("api_unreachable", 0);

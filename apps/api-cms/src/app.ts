@@ -7,6 +7,7 @@ import { requestId } from "hono/request-id";
 import type { Context } from "hono";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { rateLimiter } from "hono-rate-limiter";
+import { prisma } from "@repo/db";
 import { auth } from "./auth";
 import { requireAuth } from "./auth-middleware";
 import type { AuthEnv } from "./auth-middleware";
@@ -81,7 +82,20 @@ export function createApp() {
   app.use("*", writeLimiter);
 
   app.get("/health", (c) => c.json({ status: "ok" }));
-  app.get("/me", requireAuth, (c) => c.json({ user: c.get("auth") }));
+  // El JWT solo trae `sub`; resolvemos el usuario real en la DB para
+  // devolver rol (chip ADMIN en web/CMS) y campos públicos. 401 si el
+  // usuario ya no existe (token de una cuenta borrada).
+  app.get("/me", requireAuth, async (c) => {
+    const payload = c.get("auth");
+    const sub = typeof payload.sub === "string" ? payload.sub : null;
+    if (!sub) return c.json({ error: "unauthorized" }, 401);
+    const user = await prisma.user.findUnique({
+      where: { id: sub },
+      select: { id: true, email: true, name: true, image: true, role: true },
+    });
+    if (!user) return c.json({ error: "unauthorized" }, 401);
+    return c.json({ user });
+  });
 
   // Proveedores sociales realmente habilitados (según env). El modal de login
   // lo consulta para NO mostrar botones de Google/GitHub cuando no hay

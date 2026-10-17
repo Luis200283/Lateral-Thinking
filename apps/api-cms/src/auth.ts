@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { jwt, magicLink } from "better-auth/plugins";
+import { jwt, magicLink, username } from "better-auth/plugins";
 import { prisma } from "@repo/db";
 import { env } from "./env";
 
@@ -110,5 +110,9 @@ export const auth = betterAuth({
       // Sin registro público: solo usuarios existentes pueden loguearse.
       disableSignUp: true,
     }),
+    // Habilita login con nombre de usuario además de email: añade
+    // User.username (único, normalizado a minúsculas), User.displayUsername
+    // y POST /auth/sign-in/username { username, password }.
+    username({ minUsernameLength: 3, maxUsernameLength: 30 }),
   ],
 });

@@ -7,7 +7,7 @@ import { ApiError, getApiStatus, login } from "../../lib/cms-api";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -18,7 +18,7 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      await login(email.trim(), password);
+      await login(identifier, password);
       router.replace("/");
     } catch (err) {
       if (err instanceof ApiError) {
@@ -42,19 +42,19 @@ export default function LoginPage() {
       <Panel className="w-full max-w-md p-6 shadow-[6px_6px_0_var(--color-ink)] sm:p-8">
         <PageHeader kicker="// ACCESO" title="Entrar al CMS" />
         <p className="mt-2 text-sm text-muted">
-          Better Auth email/password contra{" "}
+          Better Auth email o usuario/password contra{" "}
           <code className="font-mono text-xs">{baseUrl}/auth</code>. El JWT se
           guarda en localStorage y se usa como Bearer.
         </p>
 
         <form onSubmit={onSubmit} className="mt-6 grid gap-5">
-          <Field label="Email">
+          <Field label="Email o usuario">
             <TextInput
-              type="email"
+              type="text"
               required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
             />
           </Field>
           <Field label="Password">
