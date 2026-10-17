@@ -148,17 +148,25 @@ export function SignInModal({
       });
       if (!res.ok) {
         const data = (await res.json().catch(() => null)) as {
+          code?: unknown;
           error?: unknown;
         } | null;
+        // Better Auth responde { message, code } (p. ej.
+        // USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL). `error` queda como
+        // fallback por si alguna versión devuelve esa forma.
         const detail =
-          typeof data?.error === "string" ? data.error : "unknown_error";
+          typeof data?.code === "string"
+            ? data.code
+            : typeof data?.error === "string"
+              ? data.error
+              : "unknown_error";
         setStatus({
           kind: "error",
           text:
             mode === "signin"
               ? "Credenciales inválidas."
-              : detail === "user_already_exists"
-                ? "Ya existe una cuenta con ese email."
+              : detail.startsWith("USER_ALREADY_EXISTS")
+                ? "Ese email ya está registrado. Inicia sesión."
                 : "No se pudo crear la cuenta. Inténtalo de nuevo.",
         });
         return;
