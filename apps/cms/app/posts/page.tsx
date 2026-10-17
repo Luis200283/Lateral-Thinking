@@ -11,6 +11,7 @@ import {
   Meta,
   PageHeader,
   Panel,
+  TextInput,
 } from "../../components/ui";
 import {
   ApiError,
@@ -23,6 +24,14 @@ import {
 const thClass =
   "px-3 py-2 text-left font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-muted";
 const tdClass = "px-3 py-3 align-top text-sm";
+
+/** Normaliza texto para buscar: minúsculas y sin acentos. */
+function normalize(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+}
 
 /** Cabecera única de la pantalla: la reutilizan el estado "cargando" y el listado. */
 const header = (
@@ -37,6 +46,7 @@ function PostsList() {
   const [items, setItems] = useState<CmsPostItem[] | null>(null);
   const [offline, setOffline] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const { baseUrl } = getApiStatus();
 
   async function refresh() {
@@ -74,6 +84,19 @@ function PostsList() {
     );
   }
 
+  const normalizedQuery = normalize(query.trim());
+  const filtered = normalizedQuery
+    ? items.filter((p) =>
+        normalize(
+          [
+            p.title,
+            p.slug,
+            ...(p.tags?.flatMap((t) => [t.name, t.slug]) ?? []),
+          ].join(" "),
+        ).includes(normalizedQuery),
+      )
+    : items;
+
   return (
     <section className="grid gap-6">
       {header}
@@ -90,13 +113,37 @@ function PostsList() {
         </Alert>
       ) : null}
 
+      {items.length > 0 ? (
+        <div className="grid gap-2">
+          <TextInput
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar por título, slug o tags…"
+            aria-label="Buscar posts"
+            className="sm:max-w-md"
+          />
+          <Meta>
+            {filtered.length} de {items.length} posts
+          </Meta>
+        </div>
+      ) : null}
+
       {items.length === 0 && !offline ? (
         <Panel>
           <Meta className="uppercase">Sin posts todavía. Crea el primero.</Meta>
         </Panel>
       ) : null}
 
-      {items.length > 0 ? (
+      {items.length > 0 && filtered.length === 0 ? (
+        <Panel>
+          <Meta className="uppercase">
+            Sin resultados para “{query.trim()}”.
+          </Meta>
+        </Panel>
+      ) : null}
+
+      {filtered.length > 0 ? (
         <Panel className="overflow-x-auto p-0">
           <table className="w-full min-w-[42rem] border-collapse text-left">
             <caption className="sr-only">Posts del CMS</caption>
@@ -123,7 +170,7 @@ function PostsList() {
               </tr>
             </thead>
             <tbody>
-              {items.map((p) => (
+              {filtered.map((p) => (
                 <tr
                   key={p.id}
                   className="border-b border-line last:border-b-0 hover:bg-paper"
@@ -143,7 +190,16 @@ function PostsList() {
                     {p._count ? p._count.views : "—"}
                   </td>
                   <td className={cn(tdClass, "font-mono")}>
-                    {p._count ? p._count.comments : "—"}
+                    {p._count ? (
+                      <Link
+                        href={`/posts/${p.id}/comentarios`}
+                        className="underline decoration-ink/30 decoration-2 underline-offset-4 transition-colors hover:decoration-ink"
+                      >
+                        {p._count.comments}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className={tdClass}>
                     <span className="flex flex-wrap gap-1.5">
@@ -162,6 +218,12 @@ function PostsList() {
                     <span className="flex flex-wrap items-center gap-3">
                       <Link href={`/posts/${p.id}`} className={inlineActionClass}>
                         Editar
+                      </Link>
+                      <Link
+                        href={`/posts/${p.id}/comentarios`}
+                        className={inlineActionClass}
+                      >
+                        Comentarios
                       </Link>
                       <button
                         type="button"
