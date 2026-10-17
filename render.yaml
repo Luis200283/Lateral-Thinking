@@ -56,11 +56,14 @@ services:
       # Coma, sin espacios (lo espera env.ts -> split(",")).
       - key: CORS_ORIGIN
         value: https://blog.luishswe.com,https://cms.luishswe.com
-      # Better Auth: baseURL publica y secret generado por Render.
+      # Better Auth: baseURL publica. El secret debe coincidir con el local
+      # (dev y prod comparten la misma DB Neon y la misma tabla jwks; la clave
+      # privada esta cifrada con el secret que la creo). Se gestiona a mano en
+      # el dashboard (sync: false) para que el blueprint no lo regenere.
       - key: BETTER_AUTH_URL
         value: https://api-cms.luishswe.com
       - key: BETTER_AUTH_SECRET
-        generateValue: true
+        sync: false
       # Magic link: sin RESEND_API_KEY el enlace se loguea en Render Logs.
       - key: EMAIL_FROM
         value: no-reply@luishswe.com
