@@ -71,13 +71,39 @@ body {
     margin: 1.1em 0;
   }
 
+  /* El preflight de Tailwind resetea list-style en listas; el artículo lo
+     restaura explícitamente, con variantes de forma en los anidados. */
+  .md ul {
+    list-style: disc;
+  }
+
+  .md ol {
+    list-style: decimal;
+  }
+
+  .md ul ul {
+    list-style: circle;
+  }
+
+  .md ul ul ul {
+    list-style: square;
+  }
+
+  .md ol ol {
+    list-style: lower-alpha;
+  }
+
+  /* Sangría suficiente para los marcadores (por fuera) y sin desbordes:
+     las listas largas hacen wrap dentro del artículo, no fuera. */
   .md ul,
   .md ol {
-    padding-left: 1.4em;
+    padding-left: 1.6em;
+    max-width: 100%;
   }
 
   .md li {
     margin: 0.35em 0;
+    overflow-wrap: break-word;
   }
 
   .md li::marker {

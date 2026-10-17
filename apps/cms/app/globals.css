@@ -16,6 +16,14 @@ body {
   overflow-x: clip;
 }
 
+/* Alturas de las barras sticky que apila la pantalla de edición de posts:
+   SiteNav (h-16 en packages/ui) + barra de documento (h-16 en las páginas).
+   La toolbar del editor se pega justo debajo de ambas. */
+:root {
+  --cms-nav-h: 4rem;
+  --cms-docbar-h: 4rem;
+}
+
 /* ==========================================================================
    Capa CMS sobre los tokens Playground. Sin valores hex: todo sale de las
    variables de tema (@repo/ui/playground.css), así que claro/oscuro se
@@ -28,8 +36,11 @@ body {
    white` fijo), lo que en tema oscuro deja texto casi negro sobre papel
    oscuro. Se re-mapean sus variables a los tokens del CMS dentro del
    envoltorio `.cms-mdx-scope` (especificidad 0,2,0: gana a la hoja de la
-   librería sin importar el orden de bundle). */
-.cms-mdx-scope .mdxeditor {
+   librería sin importar el orden de bundle). La misma capa alcanza al
+   contenedor de diálogos/popovers, que MDXEditor monta en document.body
+   fuera del scope (className="cms-mdx-dialog" en components/MdxEditor). */
+.cms-mdx-scope .mdxeditor,
+.mdxeditor-popup-container.cms-mdx-dialog {
   --accentBase: var(--color-surface);
   --accentBgSubtle: var(--color-paper);
   --accentBg: color-mix(in oklab, var(--color-coral) 12%, var(--color-surface));
@@ -60,41 +71,117 @@ body {
   --font-body: var(--font-sans);
 }
 
+/* --- Layout de documento (tipo Google Docs) ------------------------------
+   Toolbar como panel superior sticky y hoja centrada sobre el fondo paper
+   de la página. Nada de tarjeta doble: la hoja es el único marco. */
+
+.cms-mdx-scope .mdxeditor {
+  background: transparent;
+}
+
+.cms-mdx-scope .mdxeditor-toolbar {
+  top: calc(var(--cms-nav-h) + var(--cms-docbar-h) + 1.5px);
+  background: var(--color-surface);
+  border-bottom: 1.5px solid var(--color-ink);
+  border-radius: 0;
+  padding: 0.375rem 0.5rem;
+  gap: 0.125rem;
+}
+
+/* Botones compactos y alineados; el hover usa el acento ya re-mapeado. */
+.cms-mdx-scope .mdxeditor-toolbar svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.cms-mdx-scope .mdxeditor-toolbar button {
+  border-radius: var(--radius-chip);
+}
+
+/* El contenedor de popovers/diálogos vive en body: por encima de las barras
+   del editor (toolbar, barra de documento z-30) y por debajo del SiteNav. */
+.mdxeditor-popup-container.cms-mdx-dialog {
+  z-index: 40;
+}
+
+/* La hoja: contenedor centrado, borde tinta y sombra dura sobria. */
+.cms-mdx-scope .mdxeditor-root-contenteditable {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 820px;
+  min-height: 60vh;
+  margin: 2.5rem auto 4rem;
+  padding: 2.5rem 2rem;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-ink);
+  border-radius: var(--radius-card);
+  box-shadow: 3px 3px 0 var(--color-ink);
+}
+
+@media (min-width: 640px) {
+  .cms-mdx-scope .mdxeditor-root-contenteditable {
+    padding: 2.5rem;
+  }
+}
+
+/* Marcador de carga: misma silueta (barra + hoja) que el editor montado. */
+.cms-mdx-placeholder-bar {
+  height: 2.75rem;
+  background: var(--color-surface);
+  border-bottom: 1.5px solid var(--color-ink);
+}
+
 /* Área editable (contentEditableClassName="cms-mdx" en components/MdxEditor).
-   Mismo cuerpo que el resto del CMS; los bloques respiran para que el
-   markdown se lea como documento. */
+   Documento legible: el padding de la librería pasa a la hoja. */
 .cms-mdx {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0;
   font-family: var(--font-sans);
   color: var(--color-ink);
-  font-size: 0.9375rem;
+  font-size: 1.0625rem;
   line-height: 1.7;
+  overflow-wrap: break-word;
 }
 
 .cms-mdx h1,
 .cms-mdx h2,
-.cms-mdx h3 {
+.cms-mdx h3,
+.cms-mdx h4,
+.cms-mdx h5,
+.cms-mdx h6 {
   font-family: var(--font-display);
+  font-weight: 700;
   line-height: 1.25;
   margin: 1.3em 0 0.5em;
+  text-wrap: balance;
 }
 
 .cms-mdx h1 {
-  font-size: 1.5rem;
+  font-size: 1.6rem;
 }
 
 .cms-mdx h2 {
-  font-size: 1.25rem;
+  font-size: 1.35rem;
 }
 
 .cms-mdx h3 {
-  font-size: 1.0625rem;
+  font-size: 1.15rem;
+}
+
+.cms-mdx h4,
+.cms-mdx h5,
+.cms-mdx h6 {
+  font-size: 1rem;
 }
 
 .cms-mdx p,
 .cms-mdx ul,
 .cms-mdx ol,
 .cms-mdx pre,
-.cms-mdx blockquote {
+.cms-mdx blockquote,
+.cms-mdx table,
+.cms-mdx hr {
   margin: 0.7em 0;
 }
 
@@ -107,6 +194,41 @@ body {
   text-decoration: underline;
 }
 
+/* Tailwind preflight resetea los marcadores; se restauran aquí (los anidados
+   cambian de forma) con sangría suficiente para que no se corten. */
+.cms-mdx ul {
+  list-style: disc;
+}
+
+.cms-mdx ol {
+  list-style: decimal;
+}
+
+.cms-mdx ul ul {
+  list-style: circle;
+}
+
+.cms-mdx ul ul ul {
+  list-style: square;
+}
+
+.cms-mdx ol ol {
+  list-style: lower-alpha;
+}
+
+.cms-mdx ul,
+.cms-mdx ol {
+  padding-left: 1.6em;
+}
+
+.cms-mdx li {
+  margin: 0.25em 0;
+}
+
+.cms-mdx li::marker {
+  color: var(--color-coral-ink);
+}
+
 /* Mono de los tokens (mismo rol que `.md code` en apps/web), no una pila
    local: así JetBrains Mono gobierna también dentro del editor. */
 .cms-mdx code {
@@ -114,7 +236,16 @@ body {
   font-size: 0.9em;
 }
 
+.cms-mdx :not(pre) > code {
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  padding: 0.1em 0.35em;
+}
+
 .cms-mdx pre {
+  max-width: 100%;
+  border: 1.5px solid var(--color-ink);
   border-radius: var(--radius-chip);
   background: var(--color-terminal);
   color: var(--color-terminal-text);
@@ -125,4 +256,238 @@ body {
 .cms-mdx pre code {
   background: none;
   padding: 0;
+}
+
+.cms-mdx blockquote {
+  border-left: 3px solid var(--color-coral);
+  background: var(--color-paper);
+  border-radius: 0 var(--radius-chip) var(--radius-chip) 0;
+  padding: 0.75rem 1rem;
+  color: var(--color-muted);
+}
+
+.cms-mdx blockquote p {
+  margin: 0.35em 0;
+}
+
+.cms-mdx img {
+  max-width: 100%;
+  height: auto;
+  border: 1.5px solid var(--color-line);
+  border-radius: var(--radius-chip);
+}
+
+.cms-mdx hr {
+  border: 0;
+  border-top: 1.5px solid var(--color-line);
+}
+
+.cms-mdx table {
+  width: 100%;
+  max-width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+
+.cms-mdx th,
+.cms-mdx td {
+  border: 1px solid var(--color-line);
+  padding: 0.45rem 0.65rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.cms-mdx thead th {
+  background: var(--color-paper);
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* --- Vista previa (components/MarkdownPreview) ---------------------------
+   Réplica de `.md` de apps/web/app/globals.css para que lo que se ve en el
+   CMS sea exactamente lo que se publica. */
+.cms-preview {
+  margin-top: 2.25rem;
+  line-height: 1.75;
+  font-size: 1.0625rem;
+  overflow-wrap: break-word;
+}
+
+.cms-preview > :first-child {
+  margin-top: 0;
+}
+
+.cms-preview h1,
+.cms-preview h2,
+.cms-preview h3,
+.cms-preview h4 {
+  margin: 1.9em 0 0.6em;
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+  text-wrap: balance;
+}
+
+.cms-preview h1 {
+  font-size: 1.9em;
+}
+
+.cms-preview h2 {
+  font-size: 1.5em;
+}
+
+.cms-preview h3 {
+  font-size: 1.25em;
+}
+
+.cms-preview h4 {
+  font-size: 1.0625em;
+}
+
+.cms-preview p,
+.cms-preview ul,
+.cms-preview ol,
+.cms-preview blockquote,
+.cms-preview pre,
+.cms-preview table,
+.cms-preview hr,
+.cms-preview figure {
+  margin: 1.1em 0;
+}
+
+.cms-preview ul {
+  list-style: disc;
+}
+
+.cms-preview ol {
+  list-style: decimal;
+}
+
+.cms-preview ul ul {
+  list-style: circle;
+}
+
+.cms-preview ul ul ul {
+  list-style: square;
+}
+
+.cms-preview ul,
+.cms-preview ol {
+  padding-left: 1.4em;
+}
+
+.cms-preview li {
+  margin: 0.35em 0;
+}
+
+.cms-preview li::marker {
+  color: var(--color-coral-ink);
+}
+
+.cms-preview a {
+  color: var(--color-violet-ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  transition: color 150ms ease;
+}
+
+.cms-preview a:hover {
+  color: var(--color-coral-ink);
+}
+
+.cms-preview strong {
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.cms-preview hr {
+  border: 0;
+  border-top: 1.5px solid var(--color-line);
+}
+
+.cms-preview code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+}
+
+.cms-preview :not(pre) > code {
+  background: var(--color-paper);
+  border: 1px solid var(--color-line);
+  border-radius: 6px;
+  padding: 0.1em 0.35em;
+  color: var(--color-ink);
+}
+
+.cms-preview pre {
+  background: var(--color-terminal);
+  color: var(--color-terminal-text);
+  border: 1.5px solid var(--color-ink);
+  border-radius: var(--radius-chip);
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  font-size: 0.85em;
+  line-height: 1.65;
+}
+
+.cms-preview pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font-size: 1em;
+}
+
+.cms-preview blockquote {
+  border-left: 3px solid var(--color-coral);
+  background: var(--color-paper);
+  border-radius: 0 var(--radius-chip) var(--radius-chip) 0;
+  padding: 0.85rem 1.1rem;
+  color: var(--color-muted);
+}
+
+.cms-preview blockquote p {
+  margin: 0.35em 0;
+}
+
+.cms-preview table {
+  border-collapse: collapse;
+  width: 100%;
+  display: block;
+  overflow-x: auto;
+  font-size: 0.95em;
+}
+
+.cms-preview th,
+.cms-preview td {
+  border: 1px solid var(--color-line);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.cms-preview thead th {
+  background: var(--color-paper);
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+
+.cms-preview tbody tr:nth-child(even) {
+  background: var(--color-paper);
+}
+
+.cms-preview img {
+  max-width: 100%;
+  height: auto;
+  border: 1.5px solid var(--color-line);
+  border-radius: var(--radius-chip);
 }
