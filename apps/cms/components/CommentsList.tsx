@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ConfirmDialog } from "./ConfirmDialog";
 import {
   Alert,
   dangerActionClass,
@@ -51,6 +52,7 @@ export function CommentsList({ postId }: { postId?: string }) {
   const [offline, setOffline] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState<string | null>(null);
+  const [pending, setPending] = useState<CmsCommentItem | null>(null);
   const [query, setQuery] = useState("");
   const { baseUrl } = getApiStatus();
 
@@ -70,17 +72,18 @@ export function CommentsList({ postId }: { postId?: string }) {
     void refresh();
   }, [refresh]);
 
-  async function onDelete(id: string) {
-    if (!window.confirm("¿Eliminar este comentario?")) return;
+  async function confirmDelete() {
+    if (!pending) return;
     setError(null);
-    setWorking(id);
+    setWorking(pending.id);
     try {
-      await deleteComment(id);
+      await deleteComment(pending.id);
       await refresh();
     } catch (err) {
       setError(err instanceof ApiError ? `No se pudo eliminar (${err.message}).` : "Error inesperado.");
     } finally {
       setWorking(null);
+      setPending(null);
     }
   }
 
@@ -147,7 +150,7 @@ export function CommentsList({ postId }: { postId?: string }) {
                     <button
                       type="button"
                       disabled={working === c.id}
-                      onClick={() => void onDelete(c.id)}
+                      onClick={() => setPending(c)}
                       className={`${inlineActionClass} ${dangerActionClass} disabled:opacity-60`}
                     >
                       Eliminar
@@ -169,6 +172,19 @@ export function CommentsList({ postId }: { postId?: string }) {
           </Meta>
         </Panel>
       ) : null}
+
+      <ConfirmDialog
+        open={pending !== null}
+        title="¿Eliminar este comentario?"
+        description={
+          pending
+            ? `De ${pending.authorName ?? pending.user?.name ?? "Anónimo"} en “${pending.post.title}”. Esta acción no se puede deshacer.`
+            : undefined
+        }
+        working={pending !== null && working === pending.id}
+        onConfirm={() => void confirmDelete()}
+        onClose={() => setPending(null)}
+      />
     </div>
   );
 }

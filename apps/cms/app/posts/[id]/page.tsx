@@ -375,10 +375,6 @@ function EditPostForm() {
         </div>
       </div>
 
-      <Meta className="mt-6">
-        id estable <code>{post.id}</code> · slug público <code>/{post.slug}</code>
-      </Meta>
-
       {error ? (
         <Alert tone="error" role="alert" className="mt-6">
           {error}

@@ -4,6 +4,7 @@ import { Button, Tag, cn } from "@repo/ui/playground";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import AuthGuard from "../../components/AuthGuard";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { ChatIcon, EyeIcon, PencilIcon, TrashIcon } from "../../components/icons";
 import {
   Alert,
@@ -50,6 +51,8 @@ function PostsList() {
   const [items, setItems] = useState<CmsPostItem[] | null>(null);
   const [offline, setOffline] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ id: string; title: string } | null>(null);
+  const [working, setWorking] = useState(false);
   const [query, setQuery] = useState("");
   const { baseUrl } = getApiStatus();
 
@@ -68,14 +71,18 @@ function PostsList() {
     void refresh();
   }, []);
 
-  async function onDelete(id: string, title: string) {
-    if (!window.confirm(`¿Eliminar “${title}”?`)) return;
+  async function confirmDelete() {
+    if (!pending) return;
     setError(null);
+    setWorking(true);
     try {
-      await deletePost(id);
+      await deletePost(pending.id);
       await refresh();
     } catch (err) {
       setError(err instanceof ApiError ? `No se pudo eliminar (${err.message}).` : "Error inesperado.");
+    } finally {
+      setWorking(false);
+      setPending(null);
     }
   }
 
@@ -241,10 +248,11 @@ function PostsList() {
                         </Link>
                         <button
                           type="button"
-                          onClick={() => void onDelete(p.id, p.title)}
+                          disabled={working}
+                          onClick={() => setPending({ id: p.id, title: p.title })}
                           aria-label={`Eliminar ${p.title}`}
                           title="Eliminar"
-                          className={`${iconActionClass} text-coral-ink`}
+                          className={`${iconActionClass} text-coral-ink disabled:opacity-60`}
                         >
                           <TrashIcon className="size-4" />
                         </button>
@@ -314,10 +322,11 @@ function PostsList() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => void onDelete(p.id, p.title)}
+                      disabled={working}
+                      onClick={() => setPending({ id: p.id, title: p.title })}
                       aria-label={`Eliminar ${p.title}`}
                       title="Eliminar"
-                      className={`${iconActionClass} text-coral-ink`}
+                      className={`${iconActionClass} text-coral-ink disabled:opacity-60`}
                     >
                       <TrashIcon className="size-4" />
                     </button>
@@ -328,6 +337,15 @@ function PostsList() {
           </ul>
         </>
       ) : null}
+
+      <ConfirmDialog
+        open={pending !== null}
+        title={pending ? `¿Eliminar “${pending.title}”?` : ""}
+        description="Se eliminará el post. Esta acción no se puede deshacer."
+        working={working}
+        onConfirm={() => void confirmDelete()}
+        onClose={() => setPending(null)}
+      />
     </section>
   );
 }

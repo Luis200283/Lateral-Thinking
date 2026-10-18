@@ -39,6 +39,9 @@ body {
 .cms-docbar {
   width: 100vw;
   margin-left: calc(50% - 50vw);
+  /* El <main> lleva py-10; esta barra es lo primero de la página, así que
+     sube sus 2.5rem para quedar pegada al SiteNav (sticky top-16). */
+  margin-top: -2.5rem;
 }
 
 /* ==========================================================================
