@@ -164,8 +164,9 @@ export function SignInMenu() {
           onClick={() => setMenuOpen(!menuOpen)}
           className="flex items-center gap-2 rounded-pill border-[1.5px] border-ink bg-surface px-3 py-1.5 font-mono text-xs uppercase tracking-[0.12em] text-ink shadow-[2px_2px_0_var(--color-ink)] transition-colors hover:bg-paper"
         >
+          {/* El nombre se oculta en móvil: con él la nav no cabe a 390px. */}
           <span
-            className="max-w-[80px] truncate"
+            className="hidden max-w-[80px] truncate sm:inline-block"
             style={{
               maskImage: "linear-gradient(to right, black 80%, transparent)",
               WebkitMaskImage: "linear-gradient(to right, black 80%, transparent)",

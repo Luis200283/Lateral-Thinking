@@ -4,10 +4,9 @@ import { Button, Tag, cn } from "@repo/ui/playground";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import AuthGuard from "../../components/AuthGuard";
+import { ChatIcon, EyeIcon, PencilIcon, TrashIcon } from "../../components/icons";
 import {
   Alert,
-  dangerActionClass,
-  inlineActionClass,
   Meta,
   PageHeader,
   Panel,
@@ -23,7 +22,12 @@ import {
 
 const thClass =
   "px-3 py-2 text-left font-mono text-[0.6875rem] uppercase tracking-[0.16em] text-muted";
-const tdClass = "px-3 py-3 align-top text-sm";
+// align-middle: las filas con tags altos no deben dejar las acciones arriba.
+const tdClass = "px-3 py-3 align-middle text-sm";
+
+/** Acción de fila/tarjeta como icono: chip cuadrado con title y aria-label. */
+const iconActionClass =
+  "grid size-8 shrink-0 place-items-center rounded-chip border-[1.5px] border-ink bg-surface text-ink transition-colors hover:bg-paper";
 
 /** Normaliza texto para buscar: minúsculas y sin acentos. */
 function normalize(value: string): string {
@@ -144,101 +148,185 @@ function PostsList() {
       ) : null}
 
       {filtered.length > 0 ? (
-        <Panel className="overflow-x-auto p-0">
-          <table className="w-full min-w-[42rem] border-collapse text-left">
-            <caption className="sr-only">Posts del CMS</caption>
-            <thead className="border-b-[1.5px] border-ink">
-              <tr>
-                <th scope="col" className={thClass}>
-                  Título
-                </th>
-                <th scope="col" className={thClass}>
-                  Estado
-                </th>
-                <th scope="col" className={thClass}>
-                  Vistas
-                </th>
-                <th scope="col" className={thClass}>
-                  Coment.
-                </th>
-                <th scope="col" className={thClass}>
-                  Tags
-                </th>
-                <th scope="col" className={thClass}>
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((p) => (
-                <tr
-                  key={p.id}
-                  className="border-b border-line last:border-b-0 hover:bg-paper"
-                >
-                  <td className={tdClass}>
-                    <span className="font-display font-semibold tracking-[-0.01em]">
-                      {p.title}
-                    </span>
-                    <Meta className="mt-0.5">/{p.slug}</Meta>
-                  </td>
-                  <td className={tdClass}>
-                    <Tag tone={p.status === "PUBLISHED" ? "mint" : "sun"}>
+        <>
+          {/* Escritorio (lg+): tabla con el contenido centrado verticalmente.
+              overflow-x-auto por si las columnas no caben justo en lg. */}
+          <Panel className="hidden overflow-x-auto p-0 lg:block">
+            <table className="w-full border-collapse text-left">
+              <caption className="sr-only">Posts del CMS</caption>
+              <thead className="border-b-[1.5px] border-ink">
+                <tr>
+                  <th scope="col" className={thClass}>
+                    Título
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Estado
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Vistas
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Coment.
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Tags
+                  </th>
+                  <th scope="col" className={thClass}>
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((p) => (
+                  <tr
+                    key={p.id}
+                    className="border-b border-line last:border-b-0 hover:bg-paper"
+                  >
+                    <td className={tdClass}>
+                      <span className="font-display font-semibold tracking-[-0.01em]">
+                        {p.title}
+                      </span>
+                      <Meta className="mt-0.5">/{p.slug}</Meta>
+                    </td>
+                    <td className={tdClass}>
+                      <Tag tone={p.status === "PUBLISHED" ? "mint" : "sun"}>
+                        {p.status === "PUBLISHED" ? "PUBLISHED" : "DRAFT"}
+                      </Tag>
+                    </td>
+                    <td className={cn(tdClass, "font-mono")}>
+                      {p._count ? p._count.views : "—"}
+                    </td>
+                    <td className={cn(tdClass, "font-mono")}>
+                      {p._count ? (
+                        <Link
+                          href={`/posts/${p.id}/comentarios`}
+                          className="underline decoration-ink/30 decoration-2 underline-offset-4 transition-colors hover:decoration-ink"
+                        >
+                          {p._count.comments}
+                        </Link>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className={tdClass}>
+                      <span className="flex flex-wrap gap-1.5">
+                        {p.tags && p.tags.length > 0 ? (
+                          p.tags.map((t) => (
+                            <Tag key={t.slug} tone="plain">
+                              {t.name}
+                            </Tag>
+                          ))
+                        ) : (
+                          <Meta>—</Meta>
+                        )}
+                      </span>
+                    </td>
+                    <td className={tdClass}>
+                      <span className="flex items-center gap-2">
+                        <Link
+                          href={`/posts/${p.id}`}
+                          aria-label={`Editar ${p.title}`}
+                          title="Editar"
+                          className={iconActionClass}
+                        >
+                          <PencilIcon className="size-4" />
+                        </Link>
+                        <Link
+                          href={`/posts/${p.id}/comentarios`}
+                          aria-label={`Comentarios de ${p.title}`}
+                          title="Comentarios"
+                          className={iconActionClass}
+                        >
+                          <ChatIcon className="size-4" />
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => void onDelete(p.id, p.title)}
+                          aria-label={`Eliminar ${p.title}`}
+                          title="Eliminar"
+                          className={`${iconActionClass} text-coral-ink`}
+                        >
+                          <TrashIcon className="size-4" />
+                        </button>
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Panel>
+
+          {/* Móvil/tablet: una tarjeta por post. La columna minmax(0,1fr)
+              evita que los slugs/tags largos ensanchen la rejilla (min-content). */}
+          <ul className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:hidden">
+            {filtered.map((p) => (
+              <li key={p.id}>
+                <Panel className="p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-display font-semibold leading-snug tracking-[-0.01em]">
+                        {p.title}
+                      </p>
+                      <Meta className="mt-0.5 truncate">/{p.slug}</Meta>
+                    </div>
+                    <Tag
+                      tone={p.status === "PUBLISHED" ? "mint" : "sun"}
+                      className="shrink-0"
+                    >
                       {p.status === "PUBLISHED" ? "PUBLISHED" : "DRAFT"}
                     </Tag>
-                  </td>
-                  <td className={cn(tdClass, "font-mono")}>
-                    {p._count ? p._count.views : "—"}
-                  </td>
-                  <td className={cn(tdClass, "font-mono")}>
-                    {p._count ? (
-                      <Link
-                        href={`/posts/${p.id}/comentarios`}
-                        className="underline decoration-ink/30 decoration-2 underline-offset-4 transition-colors hover:decoration-ink"
-                      >
-                        {p._count.comments}
-                      </Link>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className={tdClass}>
-                    <span className="flex flex-wrap gap-1.5">
-                      {p.tags && p.tags.length > 0 ? (
-                        p.tags.map((t) => (
-                          <Tag key={t.slug} tone="plain">
-                            {t.name}
-                          </Tag>
-                        ))
-                      ) : (
-                        <Meta>—</Meta>
-                      )}
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <span className="inline-flex items-center gap-1.5 font-mono text-xs text-muted">
+                      <EyeIcon className="size-3.5" />
+                      {p._count ? p._count.views : 0}
                     </span>
-                  </td>
-                  <td className={tdClass}>
-                    <span className="flex flex-wrap items-center gap-3">
-                      <Link href={`/posts/${p.id}`} className={inlineActionClass}>
-                        Editar
+                    <span className="inline-flex items-center gap-1.5 font-mono text-xs text-muted">
+                      <ChatIcon className="size-3.5" />
+                      {p._count ? p._count.comments : 0}
+                    </span>
+                    {p.tags?.map((t) => (
+                      <Tag key={t.slug} tone="plain">
+                        {t.name}
+                      </Tag>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/posts/${p.id}`}
+                        aria-label={`Editar ${p.title}`}
+                        title="Editar"
+                        className={iconActionClass}
+                      >
+                        <PencilIcon className="size-4" />
                       </Link>
                       <Link
                         href={`/posts/${p.id}/comentarios`}
-                        className={inlineActionClass}
+                        aria-label={`Comentarios de ${p.title}`}
+                        title="Comentarios"
+                        className={iconActionClass}
                       >
-                        Comentarios
+                        <ChatIcon className="size-4" />
                       </Link>
-                      <button
-                        type="button"
-                        onClick={() => void onDelete(p.id, p.title)}
-                        className={`${inlineActionClass} ${dangerActionClass}`}
-                      >
-                        Eliminar
-                      </button>
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Panel>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void onDelete(p.id, p.title)}
+                      aria-label={`Eliminar ${p.title}`}
+                      title="Eliminar"
+                      className={`${iconActionClass} text-coral-ink`}
+                    >
+                      <TrashIcon className="size-4" />
+                    </button>
+                  </div>
+                </Panel>
+              </li>
+            ))}
+          </ul>
+        </>
       ) : null}
     </section>
   );
