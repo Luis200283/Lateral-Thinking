@@ -40,15 +40,18 @@ export function ThemeToggle({ className }: { className?: string }) {
       aria-pressed={isDark}
       onClick={() => setTheme(isDark ? "light" : "dark")}
       className={cn(
-        "relative flex h-7 w-12 items-center rounded-full border-[1.5px] border-ink bg-ink shadow-[3px_3px_0_var(--color-ink)]",
+        "relative flex h-7 w-12 items-center rounded-full border-[1.5px] border-ink bg-ink",
+        isDark
+          ? "shadow-[3px_3px_0_var(--color-sun)]"
+          : "shadow-[3px_3px_0_var(--color-violet)]",
         className,
       )}
     >
       <span
         aria-hidden="true"
         className={cn(
-          "absolute top-[3px] h-4 w-4 rounded-full transition-all duration-200 ease-[cubic-bezier(.22,1,.36,1)]",
-          isDark ? "left-[3px] bg-sun" : "right-[3px] bg-violet",
+          "absolute h-4 w-4 rounded-full transition-all duration-200 ease-[cubic-bezier(.22,1,.36,1)]",
+          isDark ? "left-[5px] bg-sun" : "right-[5px] bg-violet",
         )}
       />
     </button>

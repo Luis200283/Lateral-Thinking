@@ -5,12 +5,14 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import AuthGuard from "../../../components/AuthGuard";
+import { AutosaveBadge } from "../../../components/AutosaveBadge";
 import {
   ArrowLeftIcon,
   EyeIcon,
   GearIcon,
   PencilIcon,
 } from "../../../components/icons";
+import { LocalDraftBanner } from "../../../components/LocalDraftBanner";
 import { MarkdownPreview } from "../../../components/MarkdownPreview";
 import { MdxEditorCard } from "../../../components/MdxEditorCard";
 import { PostSettingsModal } from "../../../components/PostSettingsModal";
@@ -30,7 +32,56 @@ import {
   updatePost,
   type CmsPostDetail,
   type CmsPostStatus,
+  type UpdatePostInput,
 } from "../../../lib/cms-api";
+import {
+  clearLocalDraft,
+  readLocalDraft,
+  useAutosave,
+  type LocalDraft,
+} from "../../../lib/use-autosave";
+
+/** Estado completo del documento: lo que respalda y sincroniza el autoguardado. */
+interface DraftPayload {
+  values: PostFormValues;
+  content: string;
+  status: CmsPostStatus;
+}
+
+/** Payload del PATCH, compartido por el guardado manual y el automático. */
+function buildUpdateInput(
+  payload: DraftPayload,
+  currentSlug: string,
+): UpdatePostInput {
+  const slug = payload.values.slug.trim();
+  return {
+    title: payload.values.title.trim(),
+    // Solo cambia la URL pública si el slug difiere del actual.
+    slug: slug && slug !== currentSlug ? slug : undefined,
+    content: payload.content,
+    excerpt: payload.values.excerpt.trim() || null,
+    coverImage: payload.values.coverImage.trim() || null,
+    status: payload.status,
+    tags: payload.values.tags
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean),
+  };
+}
+
+function payloadFromDetail(detail: CmsPostDetail): DraftPayload {
+  return {
+    values: {
+      title: detail.title,
+      slug: detail.slug,
+      excerpt: detail.excerpt ?? "",
+      coverImage: detail.coverImage ?? "",
+      tags: detail.tags?.map((t) => t.name).join(", ") ?? "",
+    },
+    content: detail.content,
+    status: detail.status,
+  };
+}
 
 /**
  * Edición de un post existente, con la misma estructura de documento que
@@ -58,6 +109,7 @@ function EditPostForm() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [recovery, setRecovery] = useState<LocalDraft<DraftPayload> | null>(null);
 
   function patch(next: Partial<PostFormValues>) {
     setValues((prev) => ({ ...prev, ...next }));
@@ -68,6 +120,11 @@ function EditPostForm() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
+      // Al cambiar de post (navegación entre clientes) se vuelve a "cargando":
+      // así el autoguardado jamás compara contra valores del post anterior.
+      setPost(null);
+      setRecovery(null);
+
       const list = await listPosts();
       if (cancelled) return;
       if (list === null) {
@@ -85,22 +142,47 @@ function EditPostForm() {
         setNotFound(true);
         return;
       }
+
+      const loaded = payloadFromDetail(detail);
       setPost(detail);
-      setValues({
-        title: detail.title,
-        slug: detail.slug,
-        excerpt: detail.excerpt ?? "",
-        coverImage: detail.coverImage ?? "",
-        tags: detail.tags?.map((t) => t.name).join(", ") ?? "",
-      });
-      setContent(detail.content);
-      setStatus(detail.status);
+      setValues(loaded.values);
+      setContent(loaded.content);
+      setStatus(loaded.status);
+
+      // Respaldo local del autoguardado: si quedó una copia distinta de lo
+      // que hay en el servidor, se ofrece recuperarla; si es idéntica (el
+      // servidor ya la tiene) se limpia en silencio.
+      const backup = readLocalDraft<DraftPayload>(detail.id);
+      if (backup) {
+        const identical =
+          JSON.stringify(backup.payload) === JSON.stringify(loaded);
+        if (identical) {
+          clearLocalDraft(detail.id);
+        } else {
+          setRecovery(backup);
+        }
+      }
     }
     void load();
     return () => {
       cancelled = true;
     };
   }, [id]);
+
+  const autosave = useAutosave<DraftPayload>({
+    storageKey: post?.id ?? "pending",
+    ready: Boolean(post),
+    snapshot: () => ({ values, content, status }),
+    // Solo los borradores se sincronizan solos: un post publicado no debe
+    // cambiar en el blog sin que el autor pulse Guardar.
+    serverSave:
+      post && post.status === "DRAFT"
+        ? async (payload) => {
+            await updatePost(post.id, buildUpdateInput(payload, post.slug));
+          }
+        : undefined,
+    canServerSave: () => Boolean(values.title.trim() && content.trim()),
+  });
 
   async function save(nextStatus: CmsPostStatus) {
     if (!post) return;
@@ -112,31 +194,37 @@ function EditPostForm() {
     }
     setSaving(true);
     try {
-      const updated = await updatePost(post.id, {
-        title: values.title.trim(),
-        // Solo cambia la URL pública si el slug difiere del actual.
-        slug:
-          values.slug.trim() && values.slug.trim() !== post.slug
-            ? values.slug.trim()
-            : undefined,
-        content,
-        excerpt: values.excerpt.trim() || null,
-        coverImage: values.coverImage.trim() || null,
-        status: nextStatus,
-        tags: values.tags
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean),
-      });
+      const payload: DraftPayload = { values, content, status: nextStatus };
+      const updated = await updatePost(post.id, buildUpdateInput(payload, post.slug));
       setPost(updated);
       setStatus(updated.status);
       setValues((prev) => ({ ...prev, slug: updated.slug }));
       setSaved(true);
+      // El servidor ya tiene estos cambios: se limpia el respaldo local.
+      autosave.markSaved({
+        ...payload,
+        values: { ...payload.values, slug: updated.slug },
+      });
+      setRecovery(null);
     } catch (err) {
       setError(err instanceof ApiError ? `No se pudo guardar (${err.message}).` : "Error inesperado.");
     } finally {
       setSaving(false);
     }
+  }
+
+  function recoverDraft() {
+    if (!recovery) return;
+    setValues(recovery.payload.values);
+    setContent(recovery.payload.content);
+    setStatus(recovery.payload.status);
+    setRecovery(null);
+  }
+
+  function discardDraft() {
+    if (!post) return;
+    clearLocalDraft(post.id);
+    setRecovery(null);
   }
 
   if (notFound) {
@@ -235,6 +323,10 @@ function EditPostForm() {
             </button>
           </div>
 
+          <div className="min-w-0 flex-1 truncate text-center">
+            <AutosaveBadge state={autosave.state} savedAt={autosave.savedAt} />
+          </div>
+
           <div className="flex items-center gap-2">
             <div className="flex shrink-0 overflow-hidden rounded-full border-[1.5px] border-ink">
               <button
@@ -279,7 +371,18 @@ function EditPostForm() {
               >
                 Publicar
               </ActionButton>
-            ) : null}
+            ) : (
+              <ActionButton
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                disabled={saving}
+                title="Pasar a borrador (se oculta del blog)"
+                onClick={() => void save("DRAFT")}
+              >
+                Despublicar
+              </ActionButton>
+            )}
           </div>
         </div>
 
@@ -303,6 +406,12 @@ function EditPostForm() {
           <Tag tone={status === "PUBLISHED" ? "mint" : "sun"} className="shrink-0">
             {status === "PUBLISHED" ? "Publicado" : "Borrador"}
           </Tag>
+
+          <AutosaveBadge
+            state={autosave.state}
+            savedAt={autosave.savedAt}
+            className="shrink-0"
+          />
 
           {/* Entre lg y xl el botón va como icono para que la fila no apriete. */}
           <ActionButton
@@ -352,6 +461,19 @@ function EditPostForm() {
             </button>
           </div>
 
+          {status === "PUBLISHED" ? (
+            <ActionButton
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              disabled={saving}
+              title="Pasar a borrador (se oculta del blog)"
+              onClick={() => void save("DRAFT")}
+            >
+              Despublicar
+            </ActionButton>
+          ) : null}
+
           <ActionButton
             variant="outline"
             size="sm"
@@ -384,6 +506,14 @@ function EditPostForm() {
         <p className="mt-6 font-mono text-xs uppercase tracking-[0.14em] text-mint-ink">
           Guardado.
         </p>
+      ) : null}
+
+      {recovery ? (
+        <LocalDraftBanner
+          savedAt={recovery.savedAt}
+          onRecover={recoverDraft}
+          onDiscard={discardDraft}
+        />
       ) : null}
 
       {previewing ? (

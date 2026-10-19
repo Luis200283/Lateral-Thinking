@@ -3,20 +3,34 @@
 import { Tag } from "@repo/ui/playground";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import AuthGuard from "../../../components/AuthGuard";
+import { AutosaveBadge } from "../../../components/AutosaveBadge";
 import {
   ArrowLeftIcon,
   EyeIcon,
   GearIcon,
   PencilIcon,
 } from "../../../components/icons";
+import { LocalDraftBanner } from "../../../components/LocalDraftBanner";
 import { MarkdownPreview } from "../../../components/MarkdownPreview";
 import { MdxEditorCard } from "../../../components/MdxEditorCard";
 import { PostSettingsModal } from "../../../components/PostSettingsModal";
 import { type PostFormValues } from "../../../components/PostFields";
 import { ActionButton, Alert, inlineActionClass } from "../../../components/ui";
 import { ApiError, createPost, type CmsPostStatus } from "../../../lib/cms-api";
+import {
+  clearLocalDraft,
+  readLocalDraft,
+  useAutosave,
+  type LocalDraft,
+} from "../../../lib/use-autosave";
+
+/** Estado del documento nuevo: lo que respalda el autoguardado local. */
+interface NewDraftPayload {
+  values: PostFormValues;
+  content: string;
+}
 
 /**
  * Pantalla de edición tipo documento: barra superior sticky (volver, título,
@@ -38,9 +52,37 @@ function NewPostForm() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [recovery, setRecovery] = useState<LocalDraft<NewDraftPayload> | null>(
+    null,
+  );
 
   function patch(next: Partial<PostFormValues>) {
     setValues((prev) => ({ ...prev, ...next }));
+  }
+
+  // Un post nuevo no existe en el servidor: solo hay respaldo local. Si al
+  // montar quedó una copia del autoguardado, se ofrece recuperarla.
+  useEffect(() => {
+    const backup = readLocalDraft<NewDraftPayload>("new");
+    if (backup) setRecovery(backup);
+  }, []);
+
+  const autosave = useAutosave<NewDraftPayload>({
+    storageKey: "new",
+    ready: true,
+    snapshot: () => ({ values, content }),
+  });
+
+  function recoverDraft() {
+    if (!recovery) return;
+    setValues(recovery.payload.values);
+    setContent(recovery.payload.content);
+    setRecovery(null);
+  }
+
+  function discardDraft() {
+    clearLocalDraft("new");
+    setRecovery(null);
   }
 
   async function save(status: CmsPostStatus) {
@@ -63,6 +105,8 @@ function NewPostForm() {
           .map((t) => t.trim())
           .filter(Boolean),
       });
+      // El post ya vive en el servidor: se limpia el respaldo local.
+      autosave.markSaved({ values, content });
       router.replace("/posts");
     } catch (err) {
       setError(err instanceof ApiError ? `No se pudo guardar (${err.message}).` : "Error inesperado.");
@@ -136,6 +180,10 @@ function NewPostForm() {
             </button>
           </div>
 
+          <div className="min-w-0 flex-1 truncate text-center">
+            <AutosaveBadge state={autosave.state} savedAt={autosave.savedAt} />
+          </div>
+
           <div className="flex items-center gap-2">
             <div className="flex shrink-0 overflow-hidden rounded-full border-[1.5px] border-ink">
               <button
@@ -178,7 +226,7 @@ function NewPostForm() {
               title="Guardar borrador"
               onClick={() => void save("DRAFT")}
             >
-              Guardar borrador
+              Borrador
             </ActionButton>
           </div>
         </div>
@@ -203,6 +251,12 @@ function NewPostForm() {
           <Tag tone="sun" className="shrink-0">
             Borrador
           </Tag>
+
+          <AutosaveBadge
+            state={autosave.state}
+            savedAt={autosave.savedAt}
+            className="shrink-0"
+          />
 
           {/* Entre lg y xl el botón va como icono para que la fila no apriete. */}
           <ActionButton
@@ -276,6 +330,14 @@ function NewPostForm() {
         <Alert tone="error" role="alert" className="mt-6">
           {error}
         </Alert>
+      ) : null}
+
+      {recovery ? (
+        <LocalDraftBanner
+          savedAt={recovery.savedAt}
+          onRecover={recoverDraft}
+          onDiscard={discardDraft}
+        />
       ) : null}
 
       {previewing ? (
