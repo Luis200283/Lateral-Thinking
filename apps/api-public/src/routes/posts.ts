@@ -97,6 +97,7 @@ posts.get("/:slug/comments", async (c) => {
       id: true,
       content: true,
       authorName: true,
+      parentId: true,
       createdAt: true,
       user: { select: { name: true, image: true } },
     },
@@ -113,11 +114,21 @@ posts.post("/:slug/comments", zValidator("json", commentSchema), async (c) => {
 
   if (!post) return c.json({ error: "not_found" }, 404);
 
+  if (body.parentId) {
+    const parent = await prisma.comment.findFirst({
+      where: { id: body.parentId, postId: post.id },
+      select: { id: true },
+    });
+
+    if (!parent) return c.json({ error: "invalid_parent" }, 400);
+  }
+
   const comment = await prisma.comment.create({
     data: {
       content: body.content,
       authorName: body.authorName,
       authorEmail: body.authorEmail,
+      parentId: body.parentId,
       postId: post.id,
       // Publicación automática: sin cola de moderación.
       approved: true,

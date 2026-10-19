@@ -68,6 +68,7 @@ export const commentCreateSchema = z.object({
   content: z.string().min(1).max(2000),
   authorName: z.string().min(1).optional(),
   authorEmail: z.email().optional(),
+  parentId: z.string().min(1).optional(),
 });
 
 // ---------------------------------------------------------------------------

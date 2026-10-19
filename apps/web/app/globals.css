@@ -16,6 +16,17 @@ body {
   overflow-x: clip;
 }
 
+/* Lista de comentarios expandida: barra de scroll oculta, pero la región
+   sigue siendo enfocable y desplazable con teclado (tabIndex en CommentList). */
+.comments-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.comments-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* Markdown article content (components/Markdown.tsx) — layered as base so
    utilities can still override. Colours come from theme tokens, no loose hex. */
 @layer base {

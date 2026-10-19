@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Button, Tag } from "@repo/ui/playground";
 import { CMS_API_URL, postComment, type CommentItem } from "../lib/api";
-import { formatDate } from "../lib/ui";
 import CheckBurst from "./CheckBurst";
+import CommentList from "./CommentList";
+import EmojiPicker from "./EmojiPicker";
 
 interface CommentsProps {
   slug: string;
@@ -16,8 +16,7 @@ const FIELD =
 const LABEL =
   "font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-muted";
 
-/** Comentarios visibles antes de pulsar "Ver más". */
-const VISIBLE_LIMIT = 5;
+const MAX_CONTENT_LENGTH = 2000;
 
 type Identity = "guest" | "login";
 type SessionState = "idle" | "loading" | "ok";
@@ -29,7 +28,6 @@ interface UserInfo {
 
 export default function Comments({ slug, initial }: CommentsProps) {
   const [comments, setComments] = useState<CommentItem[]>(initial);
-  const [showAll, setShowAll] = useState(false);
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
   const [status, setStatus] = useState<
@@ -41,6 +39,8 @@ export default function Comments({ slug, initial }: CommentsProps) {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [burstKey, setBurstKey] = useState(0);
 
   useEffect(() => {
@@ -158,6 +158,40 @@ export default function Comments({ slug, initial }: CommentsProps) {
     onLogout();
   }
 
+  function insertEmoji(emoji: string): void {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setContent((prev) => (prev + emoji).slice(0, MAX_CONTENT_LENGTH));
+      return;
+    }
+    const start = textarea.selectionStart ?? content.length;
+    const end = textarea.selectionEnd ?? start;
+    const next = (
+      content.slice(0, start) + emoji + content.slice(end)
+    ).slice(0, MAX_CONTENT_LENGTH);
+    setContent(next);
+    const caret = Math.min(start + emoji.length, next.length);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(caret, caret);
+    });
+  }
+
+  async function onReply(
+    parentId: string,
+    replyContent: string,
+    authorName: string,
+  ): Promise<CommentItem | null> {
+    const created = await postComment(slug, {
+      content: replyContent,
+      authorName,
+      parentId,
+    });
+    if (created === null) return null;
+    setComments((prev) => [...prev, created]);
+    return created;
+  }
+
   async function onSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
     if (status.kind === "sending") return;
@@ -178,6 +212,10 @@ export default function Comments({ slug, initial }: CommentsProps) {
       });
       return;
     }
+    // Ancla visual del formulario: si la lista crece al insertar el
+    // comentario, compensamos el scroll para no perder de vista el form.
+    const formTop = formRef.current?.getBoundingClientRect().top ?? null;
+
     setName("");
     setContent("");
     setIdentity("guest");
@@ -186,10 +224,18 @@ export default function Comments({ slug, initial }: CommentsProps) {
     setUserInfo(null);
     setBurstKey((k) => k + 1);
     setStatus({ kind: "ok" });
-    // Publicado al momento: se añade a la lista; si caía fuera de los
-    // visibles, se despliega el resto para que la autora lo vea.
     setComments((prev) => [...prev, created]);
-    if (!showAll && comments.length + 1 > VISIBLE_LIMIT) setShowAll(true);
+
+    if (formTop !== null) {
+      requestAnimationFrame(() => {
+        const form = formRef.current;
+        if (!form) return;
+        const delta = form.getBoundingClientRect().top - formTop;
+        if (Math.abs(delta) > 1) {
+          window.scrollTo({ top: window.scrollY + delta, behavior: "auto" });
+        }
+      });
+    }
   }
 
   return (
@@ -209,40 +255,19 @@ export default function Comments({ slug, initial }: CommentsProps) {
           Todavía no hay comentarios. Sé la primera persona en dejar uno.
         </p>
       ) : (
-        <ul className="mt-8 grid gap-5">
-          {(showAll ? comments : comments.slice(0, VISIBLE_LIMIT)).map((c) => (
-            <li
-              key={c.id}
-              className="rounded-card border-[1.5px] border-ink bg-surface p-5 shadow-[3px_3px_0_var(--color-ink)]"
-            >
-              <div className="flex flex-wrap items-center gap-3">
-                <Tag tone="plain">{c.user?.name ?? c.authorName ?? "Anónimo"}</Tag>
-                <span className="font-mono text-[0.6875rem] tracking-[0.1em] text-muted">
-                  {formatDate(c.createdAt)}
-                </span>
-              </div>
-              <p className="mt-3 whitespace-pre-wrap text-[0.9375rem] leading-relaxed text-ink">
-                {c.content}
-              </p>
-            </li>
-          ))}
-        </ul>
+        <CommentList
+          comments={comments}
+          onReply={onReply}
+          replyAuthorName={fromSession ? name : ""}
+          replyFromSession={fromSession}
+        />
       )}
 
-      {!showAll && comments.length > VISIBLE_LIMIT ? (
-        <div className="mt-6">
-          <Button
-            as="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setShowAll(true)}
-          >
-            Ver más comentarios ({comments.length - VISIBLE_LIMIT})
-          </Button>
-        </div>
-      ) : null}
-
-      <form onSubmit={onSubmit} className="mt-10 grid max-w-[60ch] gap-5">
+      <form
+        ref={formRef}
+        onSubmit={onSubmit}
+        className="mt-10 grid max-w-[60ch] gap-5"
+      >
         <h3 className="font-display text-xl font-bold tracking-[-0.02em]">
           Deja un comentario
         </h3>
@@ -367,27 +392,32 @@ export default function Comments({ slug, initial }: CommentsProps) {
           </label>
         )}
 
-        <label className="grid gap-2">
-          <span className={LABEL}>Comentario *</span>
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            maxLength={2000}
-            rows={5}
-            required
-            className={FIELD}
-          />
-        </label>
+        <div className="grid gap-2">
+          <label className="grid gap-2">
+            <span className={LABEL}>Comentario *</span>
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              maxLength={MAX_CONTENT_LENGTH}
+              rows={5}
+              required
+              className={FIELD}
+            />
+          </label>
+          <div className="flex items-center">
+            <EmojiPicker onSelect={insertEmoji} label="Insertar emoji" />
+          </div>
+        </div>
 
         <div className="flex flex-wrap items-center gap-4">
-          <Button
-            as="button"
+          <button
             type="submit"
-            aria-disabled={status.kind === "sending"}
-            className="aria-disabled:pointer-events-none aria-disabled:opacity-60"
+            disabled={status.kind === "sending"}
+            className="inline-flex items-center justify-center gap-2 rounded-pill border-[1.5px] border-ink bg-coral px-5 py-2.5 font-display text-[0.9375rem] font-semibold tracking-tight text-on-accent shadow-[3px_3px_0_var(--color-ink)] transition-transform duration-200 ease-[cubic-bezier(.22,1,.36,1)] hover:-translate-y-0.5 hover:shadow-[5px_5px_0_var(--color-ink)] active:translate-y-0 disabled:pointer-events-none disabled:opacity-60"
           >
             {status.kind === "sending" ? "Enviando…" : "Publicar comentario"}
-          </Button>
+          </button>
 
           {status.kind === "error" ? (
             <p role="alert" className="font-mono text-[0.6875rem] tracking-[0.1em] text-coral-ink">

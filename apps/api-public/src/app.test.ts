@@ -5,7 +5,7 @@ import { createApp } from "./app";
 vi.mock("@repo/db", () => ({
   prisma: {
     post: { count: vi.fn(), findMany: vi.fn(), findFirst: vi.fn() },
-    comment: { findMany: vi.fn(), create: vi.fn() },
+    comment: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
     postView: { create: vi.fn() },
     readSession: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     tag: { findMany: vi.fn() },
@@ -113,6 +113,20 @@ describe("GET /posts/:slug/comments", () => {
       expect.objectContaining({ where: { postId: "p1" } }),
     );
   });
+
+  it("includes parentId in the selected fields", async () => {
+    vi.mocked(prisma.post.findFirst).mockResolvedValue({ id: "p1" } as never);
+    vi.mocked(prisma.comment.findMany).mockResolvedValue([]);
+
+    const res = await app.request("/posts/hello-world/comments");
+
+    expect(res.status).toBe(200);
+    expect(prisma.comment.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({ parentId: true }),
+      }),
+    );
+  });
 });
 
 describe("POST /posts/:slug/comments", () => {
@@ -132,6 +146,49 @@ describe("POST /posts/:slug/comments", () => {
         data: expect.objectContaining({ postId: "p1", approved: true }),
       }),
     );
+  });
+
+  it("creates a reply when parentId belongs to the same post", async () => {
+    vi.mocked(prisma.post.findFirst).mockResolvedValue({ id: "p1" } as never);
+    vi.mocked(prisma.comment.findFirst).mockResolvedValue({ id: "c0" } as never);
+    vi.mocked(prisma.comment.create).mockResolvedValue({ id: "c2" } as never);
+
+    const res = await app.request("/posts/hello-world/comments", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        content: "Respuesta",
+        authorName: "Ana",
+        parentId: "c0",
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    expect(prisma.comment.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "c0", postId: "p1" },
+      }),
+    );
+    expect(prisma.comment.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ parentId: "c0", postId: "p1" }),
+      }),
+    );
+  });
+
+  it("rejects a parentId from another post without creating anything", async () => {
+    vi.mocked(prisma.post.findFirst).mockResolvedValue({ id: "p1" } as never);
+    vi.mocked(prisma.comment.findFirst).mockResolvedValue(null as never);
+
+    const res = await app.request("/posts/hello-world/comments", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ content: "Respuesta", parentId: "c-other" }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "invalid_parent" });
+    expect(prisma.comment.create).not.toHaveBeenCalled();
   });
 });
 

@@ -79,6 +79,7 @@ export interface CommentItem {
   id: string;
   content: string;
   authorName: string | null;
+  parentId: string | null;
   createdAt: string;
   user?: { name: string | null; image: string | null } | null;
 }
@@ -203,6 +204,7 @@ export interface CreateCommentInput {
   content: string;
   authorName?: string;
   authorEmail?: string;
+  parentId?: string;
 }
 
 /** POST /posts/:slug/comments — devuelve el comentario creado o `null`. */

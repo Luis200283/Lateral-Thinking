@@ -39,6 +39,15 @@ const writeLimiter = rateLimiter({
   skip: (c) => c.req.method !== "POST",
 });
 
+const engagementLimiter = rateLimiter({
+  windowMs: 60_000,
+  limit: 40,
+  standardHeaders: "draft-6",
+  keyGenerator: clientKey,
+  message: { error: "too_many_requests" },
+  skip: (c) => c.req.method !== "POST",
+});
+
 export function createApp() {
   const app = new Hono();
 
@@ -50,8 +59,8 @@ export function createApp() {
   app.use("*", cors({ origin: env.CORS_ORIGIN.split(",") }));
   app.use("*", globalLimiter);
   app.use("/posts/:slug/comments", writeLimiter);
-  app.use("/posts/:slug/view", writeLimiter);
-  app.use("/posts/:slug/heartbeat", writeLimiter);
+  app.use("/posts/:slug/view", engagementLimiter);
+  app.use("/posts/:slug/heartbeat", engagementLimiter);
 
   app.get("/health", (c) => c.json({ status: "ok" }));
   app.route("/posts", posts);
