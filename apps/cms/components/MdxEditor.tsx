@@ -52,7 +52,8 @@ import {
   type MDXEditorMethods,
 } from "@mdxeditor/editor";
 import "@mdxeditor/editor/style.css";
-import { forwardRef } from "react";
+import { forwardRef, useCallback, useEffect, useRef } from "react";
+import { installClipboardFallback } from "../lib/clipboard";
 
 interface MdxEditorProps {
   initialValue: string;
@@ -159,15 +160,78 @@ const codeMirrorConsole = [
   ),
 ];
 
+/**
+ * Textos del editor en español. MDXEditor pasa cada clave con su valor por
+ * defecto en inglés; solo traducimos lo que el CMS usa (popover de enlace),
+ * el resto cae al default de la librería.
+ */
+const editorTexts: Record<string, string> = {
+  "linkPreview.copyToClipboard": "Copiar enlace",
+  "linkPreview.copied": "¡Copiado!",
+  "linkPreview.edit": "Editar enlace",
+  "linkPreview.remove": "Quitar enlace",
+  "createLink.url": "URL",
+  "createLink.urlPlaceholder": "Escribe o pega una URL",
+  "createLink.text": "Texto del enlace",
+  "createLink.textTooltip": "Texto que se muestra para el enlace",
+  "createLink.title": "Título del enlace",
+  "createLink.titleTooltip": "Atributo title del enlace, visible al pasar el cursor",
+  "createLink.saveTooltip": "Guardar URL",
+  "createLink.cancelTooltip": "Cancelar cambio",
+  "dialogControls.save": "Guardar",
+  "dialogControls.cancel": "Cancelar",
+};
+
+function translateEditor(key: string, defaultValue: string): string {
+  return editorTexts[key] ?? defaultValue;
+}
+
 const MdxEditor = forwardRef<MDXEditorMethods, MdxEditorProps>(function MdxEditor(
   { initialValue, onChange },
   ref,
 ) {
+  const editorRef = useRef<MDXEditorMethods>(null);
+  // Último markdown que el editor conoce (tecleado por el autor o inyectado
+  // aquí). El prop `markdown` de MDXEditor solo se lee al montar, así que un
+  // cambio externo (p. ej. «Recuperar» un respaldo) se aplica con setMarkdown.
+  const lastValueRef = useRef(initialValue);
+
+  const mergedRef = useCallback(
+    (instance: MDXEditorMethods | null) => {
+      editorRef.current = instance;
+      if (typeof ref === "function") {
+        ref(instance);
+      } else if (ref) {
+        ref.current = instance;
+      }
+    },
+    [ref],
+  );
+
+  useEffect(() => {
+    installClipboardFallback();
+  }, []);
+
+  useEffect(() => {
+    if (initialValue === lastValueRef.current) return;
+    lastValueRef.current = initialValue;
+    editorRef.current?.setMarkdown(initialValue);
+  }, [initialValue]);
+
+  const handleChange = useCallback(
+    (value: string) => {
+      lastValueRef.current = value;
+      onChange(value);
+    },
+    [onChange],
+  );
+
   return (
     <MDXEditor
-      ref={ref}
+      ref={mergedRef}
       markdown={initialValue}
-      onChange={onChange}
+      onChange={handleChange}
+      translation={translateEditor}
       contentEditableClassName="cms-mdx"
       // La clase viaja también al contenedor de diálogos que MDXEditor
       // monta en document.body (fuera de `.cms-mdx-scope`): así el capeado

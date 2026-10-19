@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import AuthGuard from "../../../components/AuthGuard";
-import { AutosaveBadge } from "../../../components/AutosaveBadge";
 import {
   ArrowLeftIcon,
   EyeIcon,
@@ -323,9 +322,6 @@ function EditPostForm() {
             </button>
           </div>
 
-          <div className="min-w-0 flex-1 truncate text-center">
-            <AutosaveBadge state={autosave.state} savedAt={autosave.savedAt} />
-          </div>
 
           <div className="flex items-center gap-2">
             <div className="flex shrink-0 overflow-hidden rounded-full border-[1.5px] border-ink">
@@ -407,11 +403,6 @@ function EditPostForm() {
             {status === "PUBLISHED" ? "Publicado" : "Borrador"}
           </Tag>
 
-          <AutosaveBadge
-            state={autosave.state}
-            savedAt={autosave.savedAt}
-            className="shrink-0"
-          />
 
           {/* Entre lg y xl el botón va como icono para que la fila no apriete. */}
           <ActionButton

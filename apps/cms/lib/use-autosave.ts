@@ -129,6 +129,20 @@ export function useAutosave<T>({
     setSavedAt(null);
   }, [ready, storageKey]);
 
+  /** Escribe el respaldo local si hay algo nuevo; no toca el servidor. */
+  const persistLocal = useCallback(() => {
+    if (!readyRef.current || busyRef.current) return;
+    const payload = snapshotRef.current();
+    const fingerprint = JSON.stringify(payload);
+    if (fingerprint === localFingerprintRef.current) return;
+    const time = writeLocalDraft(storageKey, payload);
+    if (time) {
+      localFingerprintRef.current = fingerprint;
+      setState("backup");
+      setSavedAt(time);
+    }
+  }, [storageKey]);
+
   const persist = useCallback(async () => {
     if (!readyRef.current || busyRef.current) return;
 
@@ -181,6 +195,15 @@ export function useAutosave<T>({
     }, intervalMs);
     return () => window.clearInterval(timer);
   }, [ready, intervalMs, persist]);
+
+  // Respaldo local con retardo corto tras la última edición: si el equipo se
+  // apaga de golpe (sin pagehide), lo escrito pierde como mucho ~2 s en lugar
+  // de la ventana completa del intervalo. Cada render reinicia el temporizador.
+  useEffect(() => {
+    if (!ready) return;
+    const timer = window.setTimeout(persistLocal, 2000);
+    return () => window.clearTimeout(timer);
+  });
 
   // Cierre/ocultado de la pestaña: una última escritura local para no perder
   // lo tecleado entre ticks (pagehide cubre cierre y navegación).
