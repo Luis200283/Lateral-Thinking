@@ -53,9 +53,10 @@ services:
         sync: false
       - key: DIRECT_URL
         sync: false
-      # Coma, sin espacios (lo espera env.ts -> split(",")).
+      # Coma, sin espacios (lo espera env.ts -> split(",")). Incluye la raíz
+      # porque el blog también se sirve en luishswe.com (redirect de OAuth).
       - key: CORS_ORIGIN
-        value: https://blog.luishswe.com,https://cms.luishswe.com
+        value: https://luishswe.com,https://blog.luishswe.com,https://cms.luishswe.com
       # Better Auth: baseURL publica. El secret debe coincidir con el local
       # (dev y prod comparten la misma DB Neon y la misma tabla jwks; la clave
       # privada esta cifrada con el secret que la creo). Se gestiona a mano en

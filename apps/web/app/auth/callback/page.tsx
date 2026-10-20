@@ -4,11 +4,38 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CMS_API_URL } from "../../../lib/api";
 
+const ERROR_MESSAGES: Record<string, string> = {
+  state_mismatch:
+    "El inicio de sesión caducó o se abrió en otra pestaña. Inténtalo de nuevo.",
+  access_denied: "Cancelaste el inicio de sesión.",
+  provider_not_enabled: "Ese proveedor de acceso no está disponible.",
+  social_start_failed: "No se pudo iniciar el acceso. Inténtalo de nuevo.",
+};
+
+function safeRedirect(value: string | null): string {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
+  return value;
+}
+
 export default function AuthCallbackPage() {
   const router = useRouter();
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [redirectTo, setRedirectTo] = useState("/");
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const redirectUrl = safeRedirect(searchParams.get("redirect"));
+    setRedirectTo(redirectUrl);
+
+    const authError = searchParams.get("error");
+    if (authError) {
+      setError(
+        ERROR_MESSAGES[authError] ??
+          "No se pudo iniciar sesión. Vuelve a intentarlo.",
+      );
+      return;
+    }
+
     let cancelled = false;
     fetch(`${CMS_API_URL}/auth/token`, { credentials: "include" })
       .then((res) => {
@@ -17,16 +44,18 @@ export default function AuthCallbackPage() {
       })
       .then((data: { token?: unknown }) => {
         if (cancelled || typeof data.token !== "string") {
-          if (!cancelled) setError(true);
+          if (!cancelled) {
+            setError("No se pudo iniciar sesión. Vuelve a intentarlo.");
+          }
           return;
         }
         window.localStorage.setItem("cms_jwt", data.token);
-        const searchParams = new URLSearchParams(window.location.search);
-        const redirectUrl = searchParams.get("redirect") || "/";
         router.replace(redirectUrl);
       })
       .catch(() => {
-        if (!cancelled) setError(true);
+        if (!cancelled) {
+          setError("No se pudo iniciar sesión. Vuelve a intentarlo.");
+        }
       });
     return () => {
       cancelled = true;
@@ -41,9 +70,14 @@ export default function AuthCallbackPage() {
             <h1 className="font-display text-xl font-bold text-ink">
               No se pudo iniciar sesión
             </h1>
-            <p className="mt-2 text-sm text-muted">
-              El enlace puede haber expirado. Vuelve a intentarlo.
-            </p>
+            <p className="mt-2 text-sm text-muted">{error}</p>
+            <button
+              type="button"
+              onClick={() => router.replace(redirectTo)}
+              className="mt-6 rounded-full border-[1.5px] border-ink bg-coral px-5 py-2.5 font-display font-semibold text-on-accent shadow-[3px_3px_0_var(--color-ink)]"
+            >
+              Volver
+            </button>
           </>
         ) : (
           <>

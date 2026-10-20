@@ -4,17 +4,35 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CMS_API_URL, setToken } from "../../../lib/cms-api";
 
+const ERROR_MESSAGES: Record<string, string> = {
+  state_mismatch:
+    "El inicio de sesión caducó o se abrió en otra pestaña. Inténtalo de nuevo.",
+  access_denied: "Cancelaste el inicio de sesión.",
+  provider_not_enabled: "Ese proveedor de acceso no está disponible.",
+  social_start_failed: "No se pudo iniciar el acceso. Inténtalo de nuevo.",
+};
+
 /**
  * Destino del magic link en el CMS: Better Auth ya verificó el token y
  * dejó la cookie de sesión; aquí la intercambiamos por el JWT (GET
  * /auth/token) y guardamos en localStorage + cookie espejo, como en el
- * login email/password.
+ * login email/password. Si el flujo social vuelve con ?error=, se muestra
+ * el motivo en vez de intentar canjear una sesión inexistente.
  */
 export default function AuthCallbackPage() {
   const router = useRouter();
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const authError = new URLSearchParams(window.location.search).get("error");
+    if (authError) {
+      setError(
+        ERROR_MESSAGES[authError] ??
+          "No se pudo iniciar sesión. Vuelve a intentarlo.",
+      );
+      return;
+    }
+
     let cancelled = false;
     fetch(`${CMS_API_URL}/auth/token`, { credentials: "include" })
       .then((res) => {
@@ -23,14 +41,18 @@ export default function AuthCallbackPage() {
       })
       .then((data: { token?: unknown }) => {
         if (cancelled || typeof data.token !== "string") {
-          if (!cancelled) setError(true);
+          if (!cancelled) {
+            setError("El enlace puede haber expirado. Vuelve a intentarlo.");
+          }
           return;
         }
         setToken(data.token);
         router.replace("/");
       })
       .catch(() => {
-        if (!cancelled) setError(true);
+        if (!cancelled) {
+          setError("El enlace puede haber expirado. Vuelve a intentarlo.");
+        }
       });
     return () => {
       cancelled = true;
@@ -45,9 +67,7 @@ export default function AuthCallbackPage() {
             <h1 className="font-display text-xl font-bold text-ink">
               No se pudo iniciar sesión
             </h1>
-            <p className="mt-2 text-sm text-muted">
-              El enlace puede haber expirado. Vuelve a intentarlo.
-            </p>
+            <p className="mt-2 text-sm text-muted">{error}</p>
             <button
               type="button"
               onClick={() => router.replace("/login")}

@@ -166,7 +166,7 @@ export function SignInMenu() {
         >
           {/* El nombre se oculta en móvil: con él la nav no cabe a 390px. */}
           <span
-            className="hidden max-w-[80px] truncate sm:inline-block"
+            className="hidden max-w-[80px] truncate md:inline-block"
             style={{
               maskImage: "linear-gradient(to right, black 80%, transparent)",
               WebkitMaskImage: "linear-gradient(to right, black 80%, transparent)",
@@ -174,7 +174,11 @@ export function SignInMenu() {
           >
             {userInfo.name}
           </span>
-          {userInfo.role === "ADMIN" && <AdminBadge />}
+          {userInfo.role === "ADMIN" && (
+            <span className="hidden md:inline-flex">
+              <AdminBadge />
+            </span>
+          )}
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink bg-paper">
             <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3 w-3 fill-ink">
               <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
@@ -221,8 +225,10 @@ export function SignInMenu() {
         variant="outline"
         size="sm"
         onClick={() => setOpen(true)}
+        className="whitespace-nowrap px-3 sm:px-4"
       >
-        Iniciar sesión
+        <span className="sm:hidden">Entrar</span>
+        <span className="hidden sm:inline">Iniciar sesión</span>
       </Button>
       <SignInModal
         open={open}

@@ -99,6 +99,32 @@ describe("GET /health", () => {
   });
 });
 
+describe("OAuth error redirects", () => {
+  it("sends /error back to the web callback with the reason", async () => {
+    const res = await app.request("/error?error=state_mismatch");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(
+      "http://localhost:3000/auth/callback?error=state_mismatch",
+    );
+  });
+
+  it("handles Better Auth errors landing on the API root", async () => {
+    const res = await app.request("/?error=state_mismatch");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(
+      "http://localhost:3000/auth/callback?error=state_mismatch",
+    );
+  });
+
+  it("rejects unknown/disabled social providers", async () => {
+    const res = await app.request("/auth/social/nope");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(
+      "http://localhost:3000/auth/callback?error=provider_not_enabled",
+    );
+  });
+});
+
 describe("POST /posts", () => {
   it("401s without a token", async () => {
     const res = await post("/posts", { title: "x", content: "y" });

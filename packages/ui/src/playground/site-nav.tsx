@@ -64,11 +64,11 @@ export function SiteNav({ links, brand, actions }: SiteNavProps) {
     >
       <nav
         aria-label="Main"
-        className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6 sm:px-10"
+        className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-10"
       >
         <Link
           href="/"
-          className="inline-flex items-center py-3 font-mono text-sm font-medium tracking-tight text-ink"
+          className="inline-flex shrink-0 items-center whitespace-nowrap py-3 font-mono text-sm font-medium tracking-tight text-ink"
         >
           {brand}
         </Link>
@@ -104,7 +104,10 @@ export function SiteNav({ links, brand, actions }: SiteNavProps) {
           ))}
         </ul>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          {/* Una sola instancia de la acción: si se duplica en el menú móvil,
+              al cerrarlo se desmonta (y con ella su modal). En pantallas
+              estrechas cada consumidor la compacta (p. ej. "Entrar"). */}
           {actions}
           <ThemeToggle />
 
@@ -161,14 +164,6 @@ export function SiteNav({ links, brand, actions }: SiteNavProps) {
               </li>
             ))}
           </ul>
-          {actions && (
-            <div
-              className="mt-3 flex flex-col gap-3 border-t-[1.5px] border-ink/15 pt-3"
-              onClick={() => setMenuOpen(false)}
-            >
-              {actions}
-            </div>
-          )}
         </div>
       )}
     </header>

@@ -82,6 +82,24 @@ export function createApp() {
   app.use("*", writeLimiter);
 
   app.get("/health", (c) => c.json({ status: "ok" }));
+
+  // Better Auth redirige sus errores de OAuth a esta API (`/error` o la raíz,
+  // con ?error=state_mismatch, etc.). Antes eso mostraba {"error":"not_found"}
+  // en el móvil; ahora se manda al frontend, que explica qué pasó.
+  const authErrorURL = (error: string) => {
+    const origin =
+      env.CORS_ORIGIN.split(",")[0]?.trim() ||
+      new URL(env.BETTER_AUTH_URL).origin;
+    return `${origin}/auth/callback?error=${encodeURIComponent(error)}`;
+  };
+  app.get("/error", (c) =>
+    c.redirect(authErrorURL(c.req.query("error") ?? "auth_error")),
+  );
+  app.get("/", (c) => {
+    const error = c.req.query("error");
+    if (error) return c.redirect(authErrorURL(error));
+    return c.json({ status: "ok", service: "api-cms" });
+  });
   // El JWT solo trae `sub`; resolvemos el usuario real en la DB para
   // devolver rol (chip ADMIN en web/CMS) y campos públicos. 401 si el
   // usuario ya no existe (token de una cuenta borrada).
@@ -106,6 +124,84 @@ export function createApp() {
       github: Boolean(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET),
     }),
   );
+
+  // Inicia OAuth con una navegación de página completa (no fetch cross-origin
+  // desde el blog): la cookie de state se crea aquí como primera parte. En
+  // móvil, el POST cross-origin podía perderla y Google volvía con
+  // "state_mismatch". Solo acepta callbackURL de los frontends permitidos.
+  app.get("/auth/social/:provider", async (c) => {
+    const provider = c.req.param("provider");
+    const frontendOrigins = env.CORS_ORIGIN.split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+    const fallbackOrigin =
+      frontendOrigins[0] ?? new URL(env.BETTER_AUTH_URL).origin;
+
+    const requested = c.req.query("callbackURL");
+    let callbackURL = `${fallbackOrigin}/auth/callback`;
+    if (requested) {
+      try {
+        const parsed = new URL(requested);
+        if (frontendOrigins.includes(parsed.origin)) {
+          callbackURL = parsed.toString();
+        }
+      } catch {
+        // URL inválida: se queda el fallback del frontend permitido.
+      }
+    }
+    const callbackOrigin = new URL(callbackURL).origin;
+
+    const enabled =
+      (provider === "google" &&
+        Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET)) ||
+      (provider === "github" &&
+        Boolean(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET));
+    if (!enabled) {
+      return c.redirect(
+        `${callbackOrigin}/auth/callback?error=provider_not_enabled`,
+      );
+    }
+
+    const baseURL = env.BETTER_AUTH_URL.replace(/\/+$/, "");
+    const authResponse = await auth.handler(
+      new Request(`${baseURL}/auth/sign-in/social`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: new URL(baseURL).origin,
+          "user-agent": c.req.header("user-agent") ?? "api-cms",
+          ...(c.req.header("x-forwarded-for")
+            ? { "x-forwarded-for": c.req.header("x-forwarded-for")! }
+            : {}),
+        },
+        // Los errores (state_mismatch incluido) vuelven al frontend con un
+        // mensaje legible, en vez de mostrar el JSON 404 de esta API.
+        body: JSON.stringify({
+          provider,
+          callbackURL,
+          errorCallbackURL: callbackURL,
+        }),
+      }),
+    );
+    const data = (await authResponse.json().catch(() => null)) as {
+      url?: unknown;
+    } | null;
+    if (!authResponse.ok || typeof data?.url !== "string") {
+      console.error(
+        `[auth] no se pudo iniciar OAuth (${provider}): ${authResponse.status}`,
+      );
+      return c.redirect(
+        `${callbackOrigin}/auth/callback?error=social_start_failed`,
+      );
+    }
+
+    const redirect = c.redirect(data.url, 302);
+    // La cookie de state viaja en esta misma respuesta 302.
+    for (const cookie of authResponse.headers.getSetCookie()) {
+      redirect.headers.append("set-cookie", cookie);
+    }
+    return redirect;
+  });
 
   app.route("/posts", posts);
   app.route("/comments", comments);

@@ -38,7 +38,7 @@ export default function RootLayout({
             brand={
               <>
                 Lateral Thinking<span className="text-coral-ink">.</span>
-                <span className="text-muted"> · cms</span>
+                <span className="hidden text-muted md:inline"> · cms</span>
               </>
             }
             actions={<SignInMenu />}

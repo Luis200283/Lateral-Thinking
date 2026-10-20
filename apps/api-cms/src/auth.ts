@@ -96,6 +96,14 @@ export const auth = betterAuth({
   socialProviders: Object.keys(socialProviders).length
     ? socialProviders
     : undefined,
+  advanced: {
+    cookies: {
+      // El state de OAuth vive 10 min en la DB, pero la cookie que lo ata al
+      // navegador caducaba a los 5: un login lento en móvil terminaba en
+      // "state_mismatch". Se iguala al tiempo real del state.
+      state: { attributes: { maxAge: 600 } },
+    },
+  },
   plugins: [
     jwt({
       // Better Auth firma los JWT con 15 min de vida por defecto. Para un CMS

@@ -6,6 +6,7 @@ import {
   useState,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
 import { createPortal } from "react-dom";
 
@@ -40,6 +41,9 @@ export function SignInModal({
   onSuccess,
 }: SignInModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  // Evita dobles pulsaciones en móvil: dos POST seguidos generan dos states
+  // y el primero en volver de Google provoca un state_mismatch.
+  const busyRef = useRef(false);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
@@ -72,23 +76,64 @@ export function SignInModal({
     };
   }, [open]);
 
+  // Al volver de Google con el botón atrás, la página puede restaurarse
+  // desde bfcache con `busy` atascado en true: se libera al reabrir el
+  // modal y cuando el navegador restaura la página.
+  useEffect(() => {
+    function onPageShow(event: PageTransitionEvent) {
+      if (!event.persisted) return;
+      busyRef.current = false;
+      setBusy(false);
+    }
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
+
   // Foco inicial en el primer input + trap básico de Tab dentro del diálogo.
+  // En pantallas táctiles NO enfocamos automáticamente: abrir el teclado al
+  // mostrar el modal impedía cerrarlo con un toque y se quedaba atascado.
   useEffect(() => {
     if (!open) return;
+    busyRef.current = false;
+    setBusy(false);
     setMode("signin");
     setStatus(null);
     setUsername("");
     setConfirmPassword("");
-    const first = dialogRef.current?.querySelector<HTMLElement>("input");
-    first?.focus();
+    const coarsePointer = window.matchMedia?.("(pointer: coarse)").matches;
+    if (!coarsePointer) {
+      dialogRef.current?.querySelector<HTMLElement>("input")?.focus();
+    }
+    return () => {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && dialogRef.current?.contains(active)) {
+        active.blur();
+      }
+    };
   }, [open]);
+
+  /** Cierra siempre soltando el foco: en Android el teclado no baja si el
+   *  input enfocado se desmonta sin blur explícito. */
+  function requestClose(): void {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) active.blur();
+    onClose();
+  }
+
+  function blurInsideDialog(event: ReactMouseEvent<HTMLDivElement>): void {
+    const target = event.target as HTMLElement;
+    if (!target.closest("input, textarea, select, button, a, label")) {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) active.blur();
+    }
+  }
 
   if (!open) return null;
 
   function onKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
     if (e.key === "Escape") {
       e.stopPropagation();
-      onClose();
+      requestClose();
       return;
     }
     if (e.key !== "Tab") return;
@@ -127,6 +172,7 @@ export function SignInModal({
 
   async function onEmailSubmit(e: FormEvent) {
     e.preventDefault();
+    if (busyRef.current) return;
     const value = identifier.trim();
     if (mode === "signup") {
       if (!username.trim()) {
@@ -147,6 +193,7 @@ export function SignInModal({
       }
     }
     setStatus(null);
+    busyRef.current = true;
     setBusy(true);
     try {
       // En sign-in el campo acepta email O nombre de usuario: con "@" es
@@ -201,51 +248,39 @@ export function SignInModal({
       }
       const token = await fetchToken();
       onSuccess?.(token);
-      onClose();
+      requestClose();
     } catch {
       setStatus({
         kind: "error",
         text: "No se pudo contactar con la API. ¿Está api-cms levantada?",
       });
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }
 
-  async function onSocial(provider: SignInProvider) {
+  function onSocial(provider: SignInProvider) {
+    if (busyRef.current) return;
     setStatus(null);
+    busyRef.current = true;
     setBusy(true);
-    try {
-      // Igual que el magic link: si el consumidor define magicCallbackUrl
-      // (el CMS usa "/auth/callback"), volvemos por ahí para intercambiar la
-      // sesión por el JWT. Sin él (web pública), volvemos a la página actual:
-      // allí basta la cookie de sesión para el estado "logueado".
-      const callbackURL =
-        typeof window === "undefined"
-          ? ""
-          : magicCallbackUrl
-            ? window.location.origin + magicCallbackUrl
-            : window.location.origin + window.location.pathname;
-      const res = await post("/auth/sign-in/social", { provider, callbackURL });
-      const data = (await res.json().catch(() => null)) as {
-        url?: unknown;
-        error?: unknown;
-      } | null;
-      if (!res.ok || typeof data?.url !== "string") {
-        setStatus({
-          kind: "error",
-          text: "No se pudo iniciar el flujo social. Inténtalo de nuevo.",
-        });
-        return;
-      }
-      window.location.href = data.url;
-    } catch {
-      setStatus({
-        kind: "error",
-        text: "No se pudo contactar con la API. ¿Está api-cms levantada?",
-      });
-      setBusy(false);
-    }
+    // Igual que el magic link: si el consumidor define magicCallbackUrl
+    // (el CMS usa "/auth/callback"), volvemos por ahí para intercambiar la
+    // sesión por el JWT. Sin él (web pública), volvemos a la página actual.
+    const callbackURL =
+      typeof window === "undefined"
+        ? ""
+        : magicCallbackUrl
+          ? window.location.origin + magicCallbackUrl
+          : window.location.origin + window.location.pathname;
+    // Navegación de página completa a api-cms (no fetch cross-origin): así
+    // la cookie de state del OAuth se crea en un contexto de primera parte.
+    // En móvil, el POST cross-origin podía perderla y el callback de Google
+    // terminaba en "state_mismatch".
+    window.location.assign(
+      `${base}/auth/social/${provider}?callbackURL=${encodeURIComponent(callbackURL)}`,
+    );
   }
 
   const socialButtonClass =
@@ -256,8 +291,8 @@ export function SignInModal({
 
   const overlay = (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/50 p-4 backdrop-blur-md"
-      onClick={onClose}
+      className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-ink/50 p-4 backdrop-blur-md sm:items-center"
+      onClick={requestClose}
     >
       <div
         ref={dialogRef}
@@ -265,8 +300,11 @@ export function SignInModal({
         aria-modal="true"
         aria-label="Iniciar sesión"
         onKeyDown={onKeyDown}
-        onClick={(e) => e.stopPropagation()}
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-card border-[1.5px] border-ink bg-surface p-6 shadow-[6px_6px_0_var(--color-ink)] sm:p-8"
+        onClick={(e) => {
+          e.stopPropagation();
+          blurInsideDialog(e);
+        }}
+        className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-card border-[1.5px] border-ink bg-surface p-6 shadow-[6px_6px_0_var(--color-ink)] sm:p-8"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -279,7 +317,7 @@ export function SignInModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={requestClose}
             aria-label="Cerrar"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-ink bg-surface font-mono text-sm text-ink shadow-[2px_2px_0_var(--color-ink)] transition-transform hover:-translate-y-0.5"
           >
